@@ -8,6 +8,10 @@ struct SettingsView: View {
     @EnvironmentObject private var model: ReadingModel
     @Environment(\.dismiss) private var dismiss
     @State private var pickingFile = false
+    @State private var listFile: ShelfListFile?
+    @State private var listType: UTType = .pdf
+    @State private var savingList = false
+    @State private var listNote: String?
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -75,6 +79,32 @@ struct SettingsView: View {
                             .accessibilityIdentifier("versionLine")
                     }
                 }
+
+                Section {
+                    Text("Every book with its stores, status and stars — to keep or to print.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 10) {
+                        Button("PDF") { startSaving(ShelfListFile.pdf(model.data), .pdf) }
+                            .buttonStyle(FilledButton(colour: "purple"))
+                            .accessibilityIdentifier("settings-list-pdf")
+                        Button("Table") { startSaving(ShelfListFile.table(model.data), .commaSeparatedText) }
+                            .buttonStyle(FilledButton(colour: "purple"))
+                            .accessibilityIdentifier("settings-list-table")
+                    }
+                    if let note = listNote {
+                        Text(note)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("settings-list-note")
+                    }
+                } header: {
+                    Text("Save the shelf as a list")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Theme.text("purple"))
+                        .textCase(nil)
+                }
             }
             .navigationTitle("Settings")
             #if os(iOS)
@@ -91,10 +121,24 @@ struct SettingsView: View {
             .fileImporter(isPresented: $pickingFile, allowedContentTypes: [.pdf, .commaSeparatedText, .json, .plainText, .tabSeparatedText]) { result in
                 if case .success(let url) = result { model.importKindleFile(url) }
             }
+            .fileExporter(isPresented: $savingList, document: listFile ?? ShelfListFile(data: Data()),
+                          contentType: listType, defaultFilename: ShelfListFile.defaultName()) { result in
+                switch result {
+                case .success: listNote = "The list is saved."
+                case .failure: listNote = "The list could not be saved."
+                }
+            }
         }
         #if os(macOS)
         .frame(width: 560, height: 580)
         #endif
+    }
+
+    private func startSaving(_ file: ShelfListFile, _ type: UTType) {
+        listNote = nil
+        listFile = file
+        listType = type
+        savingList = true
     }
 
     private func listRow(_ store: BookStore, key: String) -> some View {

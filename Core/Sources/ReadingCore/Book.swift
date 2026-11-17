@@ -65,22 +65,30 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
     public var note: String?
     /// Started and put away for good: it leaves "Set aside" and stands under "Gave up".
     public var gaveUp: Bool
+    /// The language the book is written in, as a two-letter code ("sv", "de", "en"). nil = not known.
+    public var language: String?
+    /// Once the owner sets the language himself, a store or a guess no longer changes it.
+    public var languageByHand: Bool
+    /// The day the book was finished. nil on a book finished before version 0.5 (see `finishedDay`).
+    public var finished: Date?
 
     public init(id: String, title: String, author: String = "", coverURL: String? = nil, series: String? = nil,
                 seriesNumber: Double? = nil, copies: [BookCopy] = [], status: ReadStatus = .unread,
                 statusByHand: Bool = false, wish: Bool = false, removed: Bool = false, progress: Double? = nil,
                 lastOpened: Date? = nil, added: Date = Date(), changed: Date = Date(),
-                rating: Int? = nil, note: String? = nil, gaveUp: Bool = false) {
+                rating: Int? = nil, note: String? = nil, gaveUp: Bool = false,
+                language: String? = nil, languageByHand: Bool = false, finished: Date? = nil) {
         self.id = id; self.title = title; self.author = author; self.coverURL = coverURL; self.series = series
         self.seriesNumber = seriesNumber; self.copies = copies; self.status = status
         self.statusByHand = statusByHand; self.wish = wish; self.removed = removed; self.progress = progress
         self.lastOpened = lastOpened; self.added = added; self.changed = changed
         self.rating = rating; self.note = note; self.gaveUp = gaveUp
+        self.language = language; self.languageByHand = languageByHand; self.finished = finished
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, author, coverURL, series, seriesNumber, copies, status, statusByHand, wish, removed
-        case progress, lastOpened, added, changed, rating, note, gaveUp
+        case progress, lastOpened, added, changed, rating, note, gaveUp, language, languageByHand, finished
     }
 
     public init(from decoder: Decoder) throws {
@@ -103,6 +111,16 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
         rating = try? c.decodeIfPresent(Int.self, forKey: .rating)
         note = try? c.decodeIfPresent(String.self, forKey: .note)
         gaveUp = (try? c.decode(Bool.self, forKey: .gaveUp)) ?? false
+        language = try? c.decodeIfPresent(String.self, forKey: .language)
+        languageByHand = (try? c.decode(Bool.self, forKey: .languageByHand)) ?? false
+        finished = try? c.decodeIfPresent(Date.self, forKey: .finished)
+    }
+
+    /// The day this book counts as finished: the day noted, else (a book finished before the day was kept)
+    /// the day it was last opened. nil for a book that is not finished, or finished on a day nobody knows.
+    public var finishedDay: Date? {
+        guard status == .finished else { return nil }
+        return finished ?? lastOpened
     }
 
     /// The stores this book is in, each once, in a fixed order.
@@ -144,8 +162,20 @@ public struct SeriesInfo: Codable, Equatable, Sendable {
     public var total: Int?
     public var volumes: [SeriesVolume]
     public var checked: Date
-    public init(total: Int?, volumes: [SeriesVolume] = [], checked: Date = Date()) {
-        self.total = total; self.volumes = volumes; self.checked = checked
+    /// The owner typed the total himself: a catalogue no longer changes it.
+    public var byHand: Bool
+    public init(total: Int?, volumes: [SeriesVolume] = [], checked: Date = Date(), byHand: Bool = false) {
+        self.total = total; self.volumes = volumes; self.checked = checked; self.byHand = byHand
+    }
+
+    enum CodingKeys: String, CodingKey { case total, volumes, checked, byHand }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        total = try? c.decodeIfPresent(Int.self, forKey: .total)
+        volumes = (try? c.decode([SeriesVolume].self, forKey: .volumes)) ?? []
+        checked = (try? c.decode(Date.self, forKey: .checked)) ?? Date(timeIntervalSince1970: 0)
+        byHand = (try? c.decode(Bool.self, forKey: .byHand)) ?? false
     }
 }
 
@@ -153,20 +183,30 @@ public struct SeriesInfo: Codable, Equatable, Sendable {
 public struct LibraryData: Codable, Equatable, Sendable {
     /// Raised when a new version adds something an older version would lose by saving.
     /// 2 (version 0.3): stars, note and "gave up" on a book, and what is known about each series.
-    public static let currentFormat = 2
+    /// 3 (version 0.5): the Up next list, the yearly goal, a book's language and finishing day, a series total typed by hand.
+    public static let currentFormat = 3
 
     public var format: Int
     public var books: [Book]
     public var imports: [String: ImportNote]
     /// Per series (its name written plainly): what a catalogue said about it.
     public var series: [String: SeriesInfo]
+    /// The owner's own "Up next" list: book ids in the order he wants to read them.
+    public var upNext: [String]
+    /// When the Up next list last changed. Between two devices the newer list wins whole.
+    public var upNextChanged: Date
+    /// Books to finish in a year, by year ("2026": 24).
+    public var goals: [String: Int]
+    public var goalsChanged: Date
 
     public init(format: Int = LibraryData.currentFormat, books: [Book] = [], imports: [String: ImportNote] = [:],
-                series: [String: SeriesInfo] = [:]) {
+                series: [String: SeriesInfo] = [:], upNext: [String] = [], upNextChanged: Date = Date(timeIntervalSince1970: 0),
+                goals: [String: Int] = [:], goalsChanged: Date = Date(timeIntervalSince1970: 0)) {
         self.format = format; self.books = books; self.imports = imports; self.series = series
+        self.upNext = upNext; self.upNextChanged = upNextChanged; self.goals = goals; self.goalsChanged = goalsChanged
     }
 
-    enum CodingKeys: String, CodingKey { case format, books, imports, series }
+    enum CodingKeys: String, CodingKey { case format, books, imports, series, upNext, upNextChanged, goals, goalsChanged }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -174,6 +214,10 @@ public struct LibraryData: Codable, Equatable, Sendable {
         books = ((try? c.decode([Lossy<Book>].self, forKey: .books)) ?? []).compactMap(\.value)
         imports = (try? c.decode([String: ImportNote].self, forKey: .imports)) ?? [:]
         series = (try? c.decode([String: SeriesInfo].self, forKey: .series)) ?? [:]
+        upNext = (try? c.decode([String].self, forKey: .upNext)) ?? []
+        upNextChanged = (try? c.decode(Date.self, forKey: .upNextChanged)) ?? Date(timeIntervalSince1970: 0)
+        goals = (try? c.decode([String: Int].self, forKey: .goals)) ?? [:]
+        goalsChanged = (try? c.decode(Date.self, forKey: .goalsChanged)) ?? Date(timeIntervalSince1970: 0)
     }
 
     /// A file written by a newer version of the app: show it, change nothing.
@@ -203,6 +247,10 @@ public struct LibraryData: Codable, Equatable, Sendable {
                 let other = book.changed > have.changed ? have : book
                 // A cover found on one device is kept, whichever side holds the newer change.
                 if winner.coverURL == nil, let cover = other.coverURL { winner.coverURL = cover }
+                // The same for a language a store told or a guess found (not the owner's doing, so it never counts as a change).
+                if winner.language == nil, !winner.languageByHand, let language = other.language { winner.language = language }
+                // And for the finishing day of a book finished before the day was kept (see `tidy`).
+                if winner.finished == nil, winner.status == .finished, let day = other.finished { winner.finished = day }
                 byID[book.id] = winner
             } else {
                 byID[book.id] = book
@@ -214,10 +262,19 @@ public struct LibraryData: Codable, Equatable, Sendable {
             imports[store] = note
         }
         var series = a.series
-        for (name, info) in b.series where info.checked > (series[name]?.checked ?? .distantPast) {
-            series[name] = info
+        for (name, info) in b.series {
+            guard let mine = series[name] else { series[name] = info; continue }
+            var newer = info.checked > mine.checked ? info : mine
+            let older = info.checked > mine.checked ? mine : info
+            // A total the owner typed on one device stays when the other device asked a catalogue later.
+            if older.byHand, !newer.byHand { newer.total = older.total; newer.byHand = true }
+            series[name] = newer
         }
-        return LibraryData(format: max(a.format, b.format), books: order.compactMap { byID[$0] }, imports: imports, series: series)
+        let nextSide = b.upNextChanged > a.upNextChanged ? b : a
+        let goalSide = b.goalsChanged > a.goalsChanged ? b : a
+        return LibraryData(format: max(a.format, b.format), books: order.compactMap { byID[$0] }, imports: imports, series: series,
+                           upNext: nextSide.upNext, upNextChanged: nextSide.upNextChanged,
+                           goals: goalSide.goals, goalsChanged: goalSide.goalsChanged)
     }
 }
 

@@ -26,16 +26,18 @@ public struct ImportedBook: Equatable, Sendable {
     public var finished: Bool
     public var purchased: Date?
     public var lastOpened: Date?
+    /// Lowercase two-letter language code ("sv", "de", "en"); nil when unknown.
+    public var language: String?
 
     public init(store: BookStore, storeID: String, title: String, author: String = "",
                 kind: BookKind = .ebook, isSample: Bool = false, lockFree: Bool = false,
                 filePath: String? = nil, coverURL: String? = nil, series: String? = nil,
                 seriesNumber: Double? = nil, progress: Double? = nil, finished: Bool = false,
-                purchased: Date? = nil, lastOpened: Date? = nil) {
+                purchased: Date? = nil, lastOpened: Date? = nil, language: String? = nil) {
         self.store = store; self.storeID = storeID; self.title = title; self.author = author
         self.kind = kind; self.isSample = isSample; self.lockFree = lockFree
         self.filePath = filePath; self.coverURL = coverURL; self.series = series
         self.seriesNumber = seriesNumber; self.progress = progress; self.finished = finished
-        self.purchased = purchased; self.lastOpened = lastOpened
+        self.purchased = purchased; self.lastOpened = lastOpened; self.language = language
     }
 }

@@ -13,7 +13,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
     # The version lives here only; the Info.plist reads it from these two.
-    MARKETING_VERSION: "0.4"
+    MARKETING_VERSION: "0.5"
     CURRENT_PROJECT_VERSION: "1"
 packages:
   # The rules: the shelf, importers, search. No screen in it.
@@ -32,11 +32,16 @@ targets:
       - path: App/Resources/Assets.xcassets
       # The small shelf list the Share extension reads: the app writes it with the same code.
       - path: ShareExtension/ShareStore.swift
+      # What the Home Screen widget shows: the app writes it with the same code.
+      - path: Widget/WidgetStore.swift
     dependencies:
       - package: ReadingCore
       - package: AMSIcons
       # The Share check ("do I own this?") on iPhone and iPad only.
       - target: AMSReadingShare
+        platformFilter: iOS
+      # The Home Screen widget "Reading" on iPhone and iPad only.
+      - target: AMSReadingWidget
         platformFilter: iOS
     entitlements:
       path: App/Config/AMSReadingCompanion.entitlements
@@ -121,6 +126,28 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: ShareExtension/Info.plist
         CODE_SIGN_ENTITLEMENTS: ShareExtension/ShareExtension.entitlements
+        # MARKETING_VERSION / CURRENT_PROJECT_VERSION come from the project-level settings
+        # (must equal the app's, or Apple rejects the upload).
+  AMSReadingWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Widget
+        excludes:
+          - Info.plist
+          - Widget.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.schabbauer.AMSReadingCompanion.Widget
+        DEVELOPMENT_TEAM: D24ENP83QQ
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Widget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Widget/Widget.entitlements
         # MARKETING_VERSION / CURRENT_PROJECT_VERSION come from the project-level settings
         # (must equal the app's, or Apple rejects the upload).
   AMSReadingCompanionUITests:

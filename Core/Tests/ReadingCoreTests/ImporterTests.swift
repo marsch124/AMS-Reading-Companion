@@ -42,6 +42,25 @@ final class ImporterTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(books.first { $0.title == "Spoken Words" }).kind, .audiobook)
     }
 
+    func testKoboAndAppleLanguage() throws {
+        let dir = try tempFolder()
+        let db = dir.appendingPathComponent("Kobo.sqlite")
+        try makeDB(db, [
+            "CREATE TABLE content (ContentID TEXT, ContentType TEXT, BookID TEXT, Title TEXT, Language TEXT)",
+            "INSERT INTO content VALUES ('l1','6',NULL,'Made Up One','sv-SE')",
+            "INSERT INTO content VALUES ('l2','6',NULL,'Made Up Two','')",
+        ])
+        let k = try KoboImporter.read(database: db)
+        XCTAssertEqual(k.first { $0.storeID == "l1" }?.language, "sv")
+        XCTAssertNil(k.first { $0.storeID == "l2" }?.language)
+        let adir = try tempFolder()
+        try makeDB(adir.appendingPathComponent("BKLibrary-1-1.sqlite"), [
+            "CREATE TABLE ZBKLIBRARYASSET (Z_PK INTEGER PRIMARY KEY, ZASSETID TEXT, ZSTOREID TEXT, ZTITLE TEXT, ZCONTENTTYPE INTEGER, ZLANGUAGE TEXT)",
+            "INSERT INTO ZBKLIBRARYASSET VALUES (1,'A1','10','Made Up Three',4,'en-US')",
+        ])
+        XCTAssertEqual(try AppleBooksImporter.read(folder: adir).first?.language, "en")
+    }
+
     func testKindle() throws {
         let dir = try tempFolder()
         try FileManager.default.createDirectory(at: dir.appendingPathComponent("Cache"), withIntermediateDirectories: true)

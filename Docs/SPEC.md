@@ -1,4 +1,4 @@
-# AMS Reading Companion — specification, version 0.4 (17 November 2026)
+# AMS Reading Companion — specification, version 0.5 (17 November 2026)
 
 Platforms: iPhone, iPad, Mac.
 
@@ -56,6 +56,7 @@ Platforms: iPhone, iPad, Mac.
 - List of all shelves: `shelf-list`; each shelf `shelf-<id>`; each cover tile `book-<shelf id>-<book id>`. Heading in its own colour, a row of covers scrolling sideways. Above the shelves: the "What next?" card (5.1).
 - Order and colours (all rules use owned books, i.e. with at least one copy, not removed):
   1. Reading now (`reading`, purple): status Reading AND not gave up AND (set by hand, OR the store gave no last-opened day, OR last opened within 90 days before the newest last-opened day of any owned book). Newest opened first.
+  1a. Up next (`upnext`, indigo), right under Reading now (0.5): the Up next list (5.5) in the owner's order; title "Up next · n". Left out when empty.
   2. Not read yet (`unread`, red): status Not read only (since 0.3 started books are no longer here), newest purchase first, with count, e.g. "Not read yet · 84".
   3. One shelf per series with 2 or more owned books (`series-<plain name>`, green), in series order, with the series note (5.2).
   4. Set aside (`aside`, brown): status Reading AND not gave up AND not on Reading now (started, not opened in the 90 days before the latest reading). Newest opened first; title "Set aside · n". Reading now and Set aside never share a book. Before 0.3 these stood under Not read yet (real data 17 Nov 2026: 72).
@@ -70,18 +71,19 @@ Platforms: iPhone, iPad, Mac.
 
 ### 5.1 What next? (`whatnext-card`, button `whatnext-another`)
 - `whatNext(limit 8)` gives suggestions in this order, each book once, only owned books with status Not read:
+  0. (0.5) The Up next books in the owner's order: the first with the reason "First on your Up next list", the others "Number <n> on your Up next list".
   1. For each finished book that has a series (most recently opened first): `nextInSeries` is an owned book with status Not read: "Next in <series>, after “<title>”".
   2. The newest purchase (needs a purchase date): "Your newest book".
   3. The remaining Not-read books with a purchase date, oldest purchase first: "Waiting since <Month yyyy>".
 - The card shows the first idea; "Another" shows the next and wraps around; shown only when there are 2 or more ideas. No ideas: no card. Tapping the card opens the book.
 
 ### 5.2 Series note
-- When a catalogue told the series length (`total` between max(highest number owned, books owned) and 200): "<owned> of <total>" and the gaps count up to the total. Otherwise "<owned> owned", with gaps only below the highest owned whole number.
+- When a total is known (a catalogue's, or the owner's own, see 5.8; `total` between max(highest number owned, books owned) and 200): "<owned> of <total>" and the gaps count up to the total. Otherwise "<owned> owned", with gaps only below the highest owned whole number.
 - Then " · missing 2, 4 and 7" when 1 to 8 numbers are missing; with 9 or more missing, or a highest number over 200, the note has no "missing" part.
 - Series knowledge is kept in the shelf file per series (plain name → total, volumes, date checked). See 14.1.
 
 ### 5.3 Sort and filter (shelf page)
-- Three menus: store (`filter-store`: all, Kobo, Kindle, Apple Books, Own file), kind (`filter-kind`: All kinds / To read / To listen), order (`filter-order`: Shelf order / By title / By author / Newest first). They start plain each time the page opens.
+- Four menus (0.5: language added): store (`filter-store`: all, Kobo, Kindle, Apple Books, Own file), kind (`filter-kind`: All kinds / To read / To listen), language ("Language": all languages, or one of the languages found among the shelf's books, the most books first), order (`filter-order`: Shelf order / By title / By author / Newest first). They start plain each time the page opens.
 - To read: books with no copies (wishes) or with a non-audio copy. To listen: books with an audiobook copy. By author: author's last name, then title. Newest first: latest purchase date.
 - When not plain: "Showing n of m." (`filter-count`), or "No book of this shelf fits."
 
@@ -95,6 +97,42 @@ Platforms: iPhone, iPad, Mac.
 - Search, Add a book, Scan and Settings are unchanged (sheets). A book opened from Search still opens inside the Search sheet.
 - Identifiers: `book-pane` (the right part), `book-pane-empty` (the line shown when no book is chosen).
 - No change to the data: file format stays 2; no new lookups.
+
+### 5.5 Up next (0.5)
+- Data: `upNext` (ordered list of book ids) and `upNextChanged` (time of the last change) in the shelf file.
+- Only a book on the shelf (at least one copy, not removed) with status Not read can stand on the list. Ids that cannot are dropped; each book once.
+- Book page: button "Add to Up next" for such a book; when it is on the list, "Take off Up next". Adding puts it at the end.
+- Shelf `upnext` (indigo, "Up next · n"), under Reading now. On its page, "Change order" opens a page where books are moved up or down or taken off, with Cancel and Save (Escape on the Mac is Cancel). Save writes the new order and the change time.
+- A book that is started (Reading) or finished leaves the list by itself, and the change time is set.
+- Merge between devices: the list with the newer `upNextChanged` wins whole; the two lists are not mixed.
+- What next? offers the Up next books first (5.1).
+
+### 5.6 Your reading: Year and Numbers (0.5)
+- A small button in the top bar of the main screen opens the page "Your reading" (`year-page`) with a switch (`year-switch`) between "Year" and "Numbers". Done: `year-done`.
+- Year: one block per year that has a finished book, the latest year first, and always the current year. Heading "<year> · <n> books" (`year-heading-<year>`); under it the finished books, the latest finishing day first, each with stars and the finishing day (`year-book-<id>`).
+- Goal: "Set goal" (`year-goal-button`) opens a sheet with a number field (`goal-field`), Cancel (`goal-cancel`) and Save (`goal-save`). The goal is stored for that year (`goals`, year → count, with `goalsChanged`, the time of the last change). A goal holds for the following years until changed: the goal for a year is the one set for it, else the latest one set for an earlier year. Empty or 0 = no goal from that year on. At most 999.
+- Goal line (`year-goal-line-<year>`): "<finished> of <goal> · goal reached" when finished is at least the goal. In the current year otherwise: due = goal × day of the year ÷ days in the year, rounded down; finished above due: "· <n> ahead"; below: "· <n> behind"; equal: "· on track". A year that is over shows only "<finished> of <goal>".
+- Merge between devices: the goals with the newer `goalsChanged` win whole.
+- Finishing day (`finished` on the book; `finishedDay` is the day that counts): today when the owner marks a book Finished; the day the store last saw the book open (`lastOpened`) when a store reports it finished; a book finished before 0.5 (no `finished`) counts on its `lastOpened`. On a finished book's page the day can be corrected (`setFinishedDay`; only a finished book has one). Finished books with no day at all stand under "Day not known" (`year-unknown-heading`).
+- Numbers (`numbers-page`): books (owned), wish list, lock-free, bought twice; bars by store (a book in two stores counts in both), by kind (ebooks, audiobooks, PDFs; a book held both ways counts in both), by reading status (Not read yet, Reading now, Set aside or gave up, Finished), by language ("Not known" last), bought per year, finished per year; the average of the owner's stars (`numbers-stars`) when something is rated. Lines: `numbers-line-<title>-<name>`, figures `numbers-figure-<name>`.
+
+### 5.7 Language (0.5)
+- Every book can carry `language` (a two-letter code such as `sv`, `de`, `en`) and `languageByHand` (true when the owner set it).
+- Source: Apple Books and Kobo tell it for most books (codes like "sv-SE", "swe" or "Swedish" are read as `sv`); Kindle does not. Where no store tells and the owner has not set it, `BookLanguage.guess` fills a careful guess from the title: only Swedish, German or English. "å" in the title = Swedish; "ß" = German; a title with fewer than 12 letters gets no guess (apart from å and ß); otherwise the system's language recognition, limited to those three, must be at least 80 % sure. The guess is not an owner's change (the book's change time stays).
+- A language set by hand (`languageByHand`) is never overwritten, by a store or a guess.
+- A store's word beats an earlier guess. A book held in two stores keeps the language it has (two stores that disagree must not flip it back and forth).
+- Housekeeping after the Mac read the stores' lists (`tidy`, no book's change time moves): a guessed language where there is none; a book finished before 0.5 gets its finishing day fixed to the day it was last opened then (so opening it again later does not move it to another year); books a store has seen started leave the Up next list.
+- Between two devices: a language or finishing day found on one side is carried to the other when that side has none; a series total typed by hand on one device stays when the other device asked a catalogue later.
+- Book page: "Language" shows it and lets the owner change it. Shelf page: the sort and filter has "Language" (5.3). Numbers counts per language (5.6).
+
+### 5.8 Series length by hand (0.5)
+- Series page: "Set length" opens a sheet to type how many books the series has, with Cancel and Save. Stored in the series table (`total`, `byHand` = true, 1 to 200). The heading then reads e.g. "3 of 7 · missing 2, 4, 6 and 7".
+- A number by hand is not changed by a catalogue's answer. An empty field (or 0) removes the number (`total` empty, `byHand` false); a catalogue may fill it again.
+
+### 5.9 Save the shelf as a list (0.5)
+- Settings › "Save the shelf as a list" (`settings-list-pdf`, `settings-list-table`).
+- "PDF": a printable list of every shown book by title, wishes last: title, author, series, stores, status, stars.
+- "Table": a comma-separated file a spreadsheet opens (heading line first, one line per book, same order). Columns: Title, Author, Series, Number, Stores, Kind, Language, Status, Finished, Stars, Note, Bought, Lock-free. Status: Not read, Reading, Finished, Gave up or Wish. Days as yyyy-mm-dd. Lock-free: "yes" or empty.
 
 ## 6. Cover marks
 - Dots per store: Kobo red-orange, Kindle blue, Apple Books grey, own file teal.
@@ -123,7 +161,8 @@ Platforms: iPhone, iPad, Mac.
 - Not on the Mac: there the plus button only adds a book by hand.
 
 ## 9. Book page (`book-page`)
-- Shows cover, title, author, series and number, each store, when bought.
+- Shows cover, title, author, series and number, language (0.5, changeable, see 5.7), each store, when bought.
+- 0.5: "Add to Up next" / "Take off Up next" for an owned book not started (5.5); on a finished book the finishing day can be corrected (5.6).
 - Gave up (`book-gave-up`, "Gave up on it"): shown when the status is Reading or the book is gave-up. It sets gave-up and status Reading by hand: the book leaves Reading now and Set aside and stands on Gave up. "Pick it up again" (`book-pick-up`) clears it (the book returns to Reading now or Set aside by the 90-day rule). Setting a status by hand clears the gave-up flag.
 - Your stars and note (`book-note-edit`, `book-stars`, `book-note`, stars `star-1`…`star-5`): "Edit" opens a sheet "Stars and note" with star row, one text field `note-text`, Cancel `note-cancel` (Escape on the Mac) and Save `note-save`. Stars 1 to 5 (tap the last filled star to take one away); a note is one line of text (trimmed; empty = none). Read-only shelf: no Edit.
 - Next in the series (`next-owned`, `next-missing`, `next-add-wish`): only when the book has a series and a whole number. `nextInSeries`: (1) an owned book of the same series (plain name) with number +1 → cover, "Book n: title", "On your shelf · not read/reading/finished", tap opens it; (2) else the catalogue's volume n+1 → "Book n: title" + "Not on your shelf." + "Add to wish list" (author of this book); (3) else, if the catalogue knows the total: n+1 ≤ total gives "Book n" only, beyond the total gives nothing; (4) else, with no catalogue knowledge, "Book n" only when a later book is on the shelf. After adding: "Added to your wish list."
@@ -134,6 +173,7 @@ Platforms: iPhone, iPad, Mac.
 
 ## 10. Lock-free books and sending
 - A book is lock-free only when the app is sure: own files. A store book is never marked lock-free in 0.1, even if sold without a lock.
+- Own EPUB books that Apple Books keeps as a folder (0.5, `EPUBPacker`): "Send to Kobo" and "Send to Kindle" on the Mac first pack the folder into one proper `.epub` file (the `mimetype` entry first, stored; the rest compressed), then send that file. Apple's own extra files (names starting with `iTunes`) and hidden files (names starting with a dot) are left out. The folder is only read, never changed. Before 0.5 the app refused such a book ("opened-up folder").
 - Send buttons, Mac only in 0.1:
   - "Open in Apple Books" (`send-apple`)
   - "Send to Kobo" (`send-kobo`): copies the file into the Dropbox folder Apps › Rakuten Kobo; a Kobo Libra Colour picks it up over Wi-Fi.
@@ -147,13 +187,14 @@ Platforms: iPhone, iPad, Mac.
 - "Look on Kobo" opens kobo.com/se/en/search and "Look on Kindle" opens amazon.com Kindle-books search (his Kindle account is on amazon.com) (digital-text), each in the browser with title + author typed in. Kobo and Kindle do not let an app read prices, so none is shown.
 
 ## 12. Settings
-- Button `settingsButton`. Items: How it works (`howItWorks`), What's new (`whatsNew`), the lists (section 3), version line (`versionLine`, e.g. "AMS Reading Companion 0.3 (n)"), Done (`settingsDone`). Also `refresh-lists`, `import-kindle-file`, `import-file-note`, `lists-help`, `cloud-off`, `howItWorks` page `guidePage`, `whatsNew` page `newsPage`.
+- Button `settingsButton`. Items: How it works (`howItWorks`), What's new (`whatsNew`), the lists (section 3), "Save the shelf as a list" (0.5, see 5.9), version line (`versionLine`, e.g. "AMS Reading Companion 0.3 (n)"), Done (`settingsDone`). Also `refresh-lists`, `import-kindle-file`, `import-file-note`, `lists-help`, `cloud-off`, `howItWorks` page `guidePage`, `whatsNew` page `newsPage`.
 
 ## 13. Data and safety
 - The shelf is one file in the app's iCloud Drive folder, shared by Mac, iPhone, iPad.
 - Own choices (status, wishes) merge per book; the newer change wins.
 - A safety copy per device once a day, 14 days back.
 - File format: `format` in the shelf file. 0.1 and 0.2 write 1; 0.3 writes 2 (adds per book `rating`, `note`, `gaveUp`; and a `series` table). A version that finds a higher format than it knows shows the shelf but changes nothing (read-only banner `newer-note`; no save, no import, no edit buttons). So a device on 0.2 meeting a format 2 file is read-only until updated. 0.3 reads format 1 files and raises them to 2 on its first change.
+- 0.5 writes format 3. New data: per book `language`, `languageByHand`, `finished` (the finishing day); top level `upNext` (list of book ids) with `upNextChanged`, and `goals` (year → count) with `goalsChanged`; per series `byHand` (the total was typed by the owner). A device on 0.4 meeting a format 3 file is read-only until updated to 0.5. 0.5 reads older files and raises them to 3 on its first change. Merging: the Up next list and the goals each win whole by their own change time; the format of a merged file is the higher of the two.
 - Fields it does not know in an entry make that entry skipped, not the whole file.
 - Nothing about the owner's list is sent anywhere. What is sent is in 14.1.
 
@@ -166,6 +207,18 @@ Platforms: iPhone, iPad, Mac.
 - Matched: owned books under "You own this" (`share-owned`) with title, author and "in <stores>"; wishes under "Already on your wish list" (`share-wished`), never under "You own this". Then only Done (`share-done`). No index yet: "Open AMS Reading once on this device, then try again." (`share-no-index`).
 - No match: "Not on your shelf" (`share-none`) with title (`share-title`) and author (`share-author`) guessed from the page title (Amazon, Apple Books and "Title by Author" forms; "Vale, Una" becomes "Una Vale"), both editable, a full-colour "Save to wish list" (`share-add-wish`) and a plain "Cancel" (`share-cancel`, adds nothing). The wish is queued in `pending-wishes.json` and lands on the shelf when the app is next opened. If the shared item has not arrived after 3 seconds, this state shows with empty fields.
 - Not on the Mac. NOT yet tried on a real iPhone.
+
+## 14.0 Home Screen widget "Reading" (0.5, iPhone and iPad only; `Widget/ReadingWidget.swift`)
+- Small: the book being read now. Medium: up to 2 Reading-now books and one "What next?" suggestion with its reason.
+- A tap opens that book's page (`amsreading://book/<id>`).
+- Refresh: when the shelf changes, and at least every 6 hours (timeline policy). The widget fetches the covers itself; a book without a cover shows the same coloured title tile as the app. No data yet: "Open AMS Reading once to fill this."
+- How the widget gets its books: the app writes a small snapshot (at most 3 Reading-now books and one suggestion: id, title, author, cover address) into the device's keychain, in the app's own keychain group `D24ENP83QQ.com.schabbauer.AMSReadingCompanion`; the widget is let into that group (`Widget/Widget.entitlements`) and reads it. Only written when it changed. Nothing leaves the device. (Not an App Group: a new one must be registered by hand at Apple; the keychain group needs no registration.)
+- Not on the Mac.
+- Not proven on a real device yet (17 Nov 2026): seen only as pictures of its views.
+
+## 14.0.1 Device search (0.5, iPhone, iPad and Mac; `SpotlightIndex`)
+- The books are put into the device's own search index (title, author). A result says "You own this · <stores>" (e.g. "Kobo, Kindle") or "On your wish list"; a tap opens that book's page.
+- The index lives on the device only; nothing is sent anywhere.
 
 ## 14.1 Lookups in public catalogues (`ReadingCore/Lookups`)
 All requests: 8 seconds time limit; an error or any doubt gives "nothing", never a failure on screen. Only title and author (or the barcode number) are sent; never the owner's list. Not run in `-sampleData`.
@@ -203,4 +256,5 @@ All requests: 8 seconds time limit; an error or any doubt gives "nothing", never
 - 0.1 (17 Nov 2026): first version.
 - 0.2 (17 Nov 2026): fix. Built-in Kindle entries left out (16 entries became 2); samples and built-in items marked later leave the shelf; honest Kindle count in Settings.
 - 0.3 (17 Nov 2026): What next? card; shelves Set aside (72 started books leave Not read yet), Bought twice (7), Gave up; own stars and note; Next in the series; series note "3 of 7" from a public catalogue; covers by title and author; sort and filter on a shelf page; Share check and barcode scan (iPhone and iPad); wish-list prices; Kindle list from Amazon's page saved as PDF; no second copy of a store from a repeated list file; file format 2.
+- 0.5 (17 Nov 2026): Up next list (button on the book page, shelf under Reading now, Change order, first in What next?); Your reading (Year with goals and finishing days, Numbers); language of every book with a careful title guess, set by hand, filter on a shelf page; Home Screen widget "Reading" (iPhone, iPad); device search finds the books; own EPUB folders packed into one .epub when sent from the Mac; series length by hand; Save the shelf as a list (PDF, Table); file format 3 (a device on 0.4 is read-only); the app's code is public on GitHub with automatic tests on every change (no real titles; sample and tests use made-up books).
 - 0.4 (17 Nov 2026): wide layout on iPad and Mac (window 760 points or more): shelves on the left, the chosen book's page on the right (38 % of the width, 340 to 440 points); narrow windows and iPhone unchanged; identifiers `book-pane`, `book-pane-empty`; no data change.

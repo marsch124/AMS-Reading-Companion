@@ -8,7 +8,7 @@ public enum KoboImporter {
         try SQLiteCopy.with(database) { copy in
             let rows = copy.rows(table: "content", wanted: [
                 "ContentID", "ContentType", "BookID", "Title", "Attribution", "___PercentRead", "ReadStatus",
-                "DateLastRead", "Series", "SeriesNumber", "ImageId", "MimeType", "Accessibility"])
+                "DateLastRead", "Series", "SeriesNumber", "ImageId", "MimeType", "Accessibility", "Language"])
             var out: [ImportedBook] = []
             for r in rows {
                 guard r["ContentType"]?.string == "6" else { continue }
@@ -30,7 +30,8 @@ public enum KoboImporter {
                     progress: r["___PercentRead"]?.double.map { min(1, max(0, $0 / 100)) },
                     finished: r["ReadStatus"]?.int == 2,
                     purchased: nil,
-                    lastOpened: r["DateLastRead"]?.string.flatMap(parseDate)))
+                    lastOpened: r["DateLastRead"]?.string.flatMap(parseDate),
+                    language: BookLanguage.code(r["Language"]?.string)))
             }
             return out
         }

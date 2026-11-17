@@ -91,6 +91,12 @@ extension LibraryData {
             SeriesVolume(number: 4, title: "Glass Tide"),
             SeriesVolume(number: 5, title: "Lantern Rising"),
         ], checked: day(310)), for: lantern)
+        // The owner's own Up next list, a goal for the year, and a language for each book.
+        data.upNext = ["apple:a-harrow2", "kobo:k-brass"]
+        data.upNextChanged = day(310)
+        data.goals = ["2026": 12]
+        data.goalsChanged = day(1)
+        data.guessLanguages()
         return data
     }
 }

@@ -80,11 +80,16 @@ struct RootView: View {
                 }
             }
             .task(id: wide) { settle(wide: wide) }
+            // A tap on the widget or in the device's search while the app is open.
+            .onChange(of: model.startBook) { _, id in
+                if id != nil { settle(wide: wide) }
+            }
         }
         .sheet(isPresented: $model.settingsShown) { SettingsView() }
         .sheet(isPresented: $model.searchShown) { SearchView() }
         .sheet(isPresented: $model.addShown) { AddBookPage() }
         .sheet(isPresented: $model.scanShown) { ScanView() }
+        .sheet(isPresented: $model.yearShown) { YearPage(start: model.yearOnNumbers ? .numbers : .year) }
     }
 
     /// What a start argument asked for, and on a wide screen a first book on the right so that part is not empty.
@@ -163,6 +168,13 @@ struct RootView: View {
             .keyboardShortcut("f", modifiers: .command)
             .accessibilityLabel("Search")
             .accessibilityIdentifier("open-search")
+
+            Button { model.yearOnNumbers = false; model.yearShown = true } label: {
+                AppMarkView(.calendar, size: 20)
+            }
+            .help("Your reading: the year in books, and the numbers")
+            .accessibilityLabel("Your reading")
+            .accessibilityIdentifier("open-year")
 
             if !model.readOnly {
                 #if os(iOS)
@@ -348,6 +360,9 @@ struct ShelfAllView: View {
     @EnvironmentObject private var model: ReadingModel
     let shelfID: String
     @State private var filter = ShelfFilter()
+    // For pictures: `-order` and `-length` start with that page open.
+    @State private var ordering = ProcessInfo.processInfo.arguments.contains("-order")
+    @State private var settingLength = ProcessInfo.processInfo.arguments.contains("-length")
 
     var body: some View {
         let shelf = model.data.shelf(shelfID)
@@ -355,7 +370,7 @@ struct ShelfAllView: View {
         let books = filter.apply(to: all)
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                filterRow(colour: shelf?.colour ?? "grey")
+                filterRow(colour: shelf?.colour ?? "grey", languages: LibraryData.languages(in: all))
                 if !filter.isPlain {
                     Text(books.isEmpty ? "No book of this shelf fits." : "Showing \(books.count) of \(all.count).")
                         .font(.footnote)
@@ -379,9 +394,59 @@ struct ShelfAllView: View {
         }
         .navigationTitle(shelf?.title ?? "Shelf")
         .accessibilityIdentifier("shelf-all-\(shelfID)")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if !model.readOnly, shelfID == "upnext" {
+                    Button("Change order") { ordering = true }
+                        .foregroundStyle(Theme.text("indigo"))
+                        .accessibilityIdentifier("upnext-order")
+                } else if !model.readOnly, shelfID.hasPrefix("series-"), shelf != nil {
+                    Button("Set length") { settingLength = true }
+                        .foregroundStyle(Theme.text("green"))
+                        .accessibilityIdentifier("series-length")
+                }
+            }
+        }
+        .sheet(isPresented: $ordering) { UpNextOrderPage() }
+        .sheet(isPresented: $settingLength) { SeriesLengthPage(name: shelf?.title ?? "") }
     }
 
-    private func filterRow(colour: String) -> some View {
+    /// The menus in one row where they fit, else the language menu on a row of its own.
+    @ViewBuilder
+    private func filterRow(colour: String, languages: [(code: String, count: Int)]) -> some View {
+        if languages.isEmpty {
+            menus(colour: colour)
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    menus(colour: colour)
+                    languageMenu(languages, colour: colour)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    menus(colour: colour)
+                    languageMenu(languages, colour: colour)
+                }
+            }
+        }
+    }
+
+    private func languageMenu(_ languages: [(code: String, count: Int)], colour: String) -> some View {
+        Picker("Language", selection: $filter.language) {
+            Text("All languages").tag(String?.none)
+            ForEach(languages, id: \.code) { language in
+                Text("\(BookLanguage.name(language.code)) · \(language.count)").tag(String?.some(language.code))
+            }
+        }
+        .accessibilityIdentifier("filter-language")
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
+        .tint(Theme.text(colour))
+        .font(.subheadline)
+    }
+
+    private func menus(colour: String) -> some View {
         HStack(spacing: 6) {
             Picker("Store", selection: $filter.store) {
                 Text("All stores").tag(BookStore?.none)
@@ -403,7 +468,6 @@ struct ShelfAllView: View {
                 Text("Newest first").tag(ShelfFilter.Order.newest)
             }
             .accessibilityIdentifier("filter-order")
-            Spacer(minLength: 0)
         }
         .pickerStyle(.menu)
         .labelsHidden()

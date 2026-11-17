@@ -1,9 +1,11 @@
+import CoreSpotlight
 import ReadingCore
 import SwiftUI
 #if os(macOS)
 import AppKit
 #else
 import UIKit
+import WidgetKit
 #endif
 
 @main
@@ -36,6 +38,12 @@ struct ReadingApp: App {
             .onChange(of: phase) { _, now in
                 if now == .active { model.cameForward() } else { model.saveNow() }
             }
+            // A tap on the Home Screen widget.
+            .onOpenURL { model.open(link: $0) }
+            // A tap on a book in the device's own search.
+            .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                if let id = SpotlightIndex.bookID(from: activity) { model.show(bookID: id) }
+            }
     }
 }
 
@@ -53,6 +61,10 @@ final class ReadingModel: ObservableObject {
     @Published var searchShown = false
     @Published var addShown = false
     @Published var scanShown = false
+    /// "Your reading": the year in books and the numbers.
+    @Published var yearShown = false
+    /// For pictures: `-numbers` starts "Your reading" on its Numbers part.
+    var yearOnNumbers = false
     /// The Mac only: what the last read of each store's list said when it gave no books.
     @Published var storeTrouble: [String: String] = [:]
     @Published var readingLists = false
@@ -96,6 +108,8 @@ final class ReadingModel: ObservableObject {
         searchShown = args.contains("-search")
         addShown = args.contains("-add")
         scanShown = args.contains("-scan")
+        yearOnNumbers = args.contains("-numbers")
+        yearShown = args.contains("-year") || yearOnNumbers
         if let i = args.firstIndex(of: "-shelf"), i + 1 < args.count { startShelf = args[i + 1] }
         // `-show Brass` starts on the page of the first book whose title holds that word.
         // (By title, not by id: the Mac takes an argument with a colon in it for a file to open and shows no window.)
@@ -152,15 +166,47 @@ final class ReadingModel: ObservableObject {
         }
     }
 
-    // MARK: The Share check (iPhone and iPad)
+    // MARK: Outside the app: a widget tap, a search tap
 
-    /// Gives the Share extension a small list of the shelf, and takes in the wishes made from it.
+    /// Goes to a book's page from outside the app, closing whatever page lies on top.
+    func show(bookID id: String) {
+        guard data.book(id) != nil else { return }
+        settingsShown = false; searchShown = false; addShown = false; scanShown = false; yearShown = false
+        startBook = id
+    }
+
+    /// `amsreading://book/<id>`: what a tap on the Home Screen widget sends.
+    func open(link url: URL) {
+        let start = "amsreading://book/"
+        let text = url.absoluteString
+        guard text.hasPrefix(start), let id = String(text.dropFirst(start.count)).removingPercentEncoding else { return }
+        show(bookID: id)
+    }
+
+    // MARK: The Share check and the widget (iPhone and iPad), the device's own search (everywhere)
+
+    /// Gives the Share extension a small list of the shelf, the widget its books, and the device's search the titles.
+    /// Everything stays on the device.
     private func shareShelf() {
-        #if os(iOS)
         guard !sample else { return }
-        let entries = data.shown.map { ShelfEntry(title: $0.title, author: $0.author, stores: $0.stores.map(\.name), wish: $0.wish) }
-        Task.detached(priority: .utility) { ShareFiles.writeIndex(entries) }
+        let books = data.shown
+        #if os(iOS)
+        let entries = books.map { ShelfEntry(title: $0.title, author: $0.author, stores: $0.stores.map(\.name), wish: $0.wish) }
+        func tile(_ book: Book) -> WidgetBook {
+            WidgetBook(id: book.id, title: book.title, author: book.author, coverURL: book.coverURL, tint: book.title)
+        }
+        let idea = data.whatNext(limit: 1).first
+        let snapshot = WidgetSnapshot(reading: (data.shelf("reading")?.books ?? []).prefix(3).map(tile),
+                                      next: idea.map { tile($0.book) }, nextReason: idea?.reason)
+        Task.detached(priority: .utility) {
+            ShareFiles.writeIndex(entries)
+            if WidgetFiles.read() != snapshot {
+                WidgetFiles.write(snapshot)
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+        }
         #endif
+        Task.detached(priority: .utility) { SpotlightIndex.update(books) }
     }
 
     private func takeSharedWishes() {
@@ -228,6 +274,8 @@ final class ReadingModel: ObservableObject {
                 self.took(apple, source: .apple, key: "apple", complete: true)
                 self.took(kindle, source: .kindle, key: "kindle", complete: false)
                 self.took(kobo, source: .kobo, key: "kobo", complete: true)
+                // A guessed language where no store tells one, fixed finishing days, a clean Up next list.
+                self.change { $0.tidy() }
                 self.readingLists = false
             }
         }
@@ -326,6 +374,34 @@ final class ReadingModel: ObservableObject {
     func setCover(_ address: String, of id: String) {
         change { $0.setCover(address, of: id) }
     }
+
+    func addUpNext(_ id: String) {
+        change { $0.addUpNext(id) }
+    }
+
+    func removeUpNext(_ id: String) {
+        change { $0.removeUpNext(id) }
+    }
+
+    func setUpNext(_ ids: [String]) {
+        change { $0.setUpNext(ids) }
+    }
+
+    func setLanguage(_ code: String?, of id: String) {
+        change { $0.setLanguage(code, of: id) }
+    }
+
+    func setFinishedDay(_ day: Date, of id: String) {
+        change { $0.setFinishedDay(day, of: id) }
+    }
+
+    func setSeriesTotal(_ total: Int?, for name: String) {
+        change { $0.setSeriesTotal(total, for: name) }
+    }
+
+    func setGoal(_ count: Int?, year: Int) {
+        change { $0.setGoal(count, year: year) }
+    }
 }
 
 /// Starting other apps, the same way on Mac, iPhone and iPad.
@@ -415,9 +491,42 @@ extension ReadingModel {
             return
         }
         if target != .apple, isFolder.boolValue {
-            trouble = "Apple Books keeps “\(file.lastPathComponent)” as an opened-up folder, which other readers cannot take yet. PDFs and single-file books can be sent."
+            // Apple Books keeps this book as an opened-up folder: pack it into one .epub file first, off the main
+            // thread (a book with many pictures takes a moment). The folder is only read.
+            let folder = file
+            notice = "Packing “\(folder.lastPathComponent)” into one file…"
+            Task {
+                let packed = await Task.detached(priority: .userInitiated) { () -> URL? in
+                    let out = FileManager.default.temporaryDirectory
+                        .appendingPathComponent("send-\(UUID().uuidString)", isDirectory: true)
+                        .appendingPathComponent(folder.lastPathComponent)
+                    do {
+                        try FileManager.default.createDirectory(at: out.deletingLastPathComponent(), withIntermediateDirectories: true)
+                        try EPUBPacker.pack(folder: folder, to: out)
+                        return out
+                    } catch {
+                        return nil
+                    }
+                }.value
+                self.notice = nil
+                guard let packed else {
+                    self.trouble = "“\(folder.lastPathComponent)” could not be packed into one file for another reader."
+                    return
+                }
+                self.deliver(packed, of: book, copy: copy, to: target)
+                // The reader has its own copy now: the packed one can go.
+                try? FileManager.default.removeItem(at: packed.deletingLastPathComponent())
+            }
             return
         }
+        deliver(file, of: book, copy: copy, to: target)
+        #else
+        trouble = "Sending is done on the Mac."
+        #endif
+    }
+
+    #if os(macOS)
+    private func deliver(_ file: URL, of book: Book, copy: BookCopy, to target: SendTarget) {
         switch target {
         case .apple:
             if copy.source == .apple {
@@ -447,10 +556,8 @@ extension ReadingModel {
             Opener.open(page) { _ in }
             notice = "A copy named “\(file.lastPathComponent)” is in Downloads. On the page that opened, choose that file."
         }
-        #else
-        trouble = "Sending is done on the Mac."
-        #endif
     }
+    #endif
 
     #if os(macOS)
     private func place(_ file: URL, in folder: URL) -> Bool {

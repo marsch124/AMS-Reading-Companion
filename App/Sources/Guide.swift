@@ -56,10 +56,11 @@ enum Guide {
         ]),
         Part(title: "The shelves", text: [
             "The main screen is a stack of shelves. Each has a heading in its own colour and a row of covers that scrolls sideways. A book can stand on several shelves. Empty shelves are left out, except the Wish list.",
-            "The order from the top: Reading now, Not read yet, each series, Set aside, Lock-free, Audiobooks, Bought twice, Finished, Gave up, Wish list.",
+            "The order from the top: Reading now, Up next, Not read yet, each series, Set aside, Lock-free, Audiobooks, Bought twice, Finished, Gave up, Wish list.",
             "Reading now (purple): the books you opened lately. A book you set to Reading yourself always stays here.",
+            "Up next (indigo): the books you chose to read next, in your order, with the count, for example “Up next · 3”. See Up next.",
             "Not read yet (red): newest purchase first, with the count, for example “Not read yet · 84”. Books you started are not here any more.",
-            "One shelf for each series of which you own two books or more (green), in series order. The note says “3 of 7 · missing 2 and 4” when a public book catalogue knows how long the series is. When it does not, the note says “3 owned · missing 2”, and gaps are then known only below the highest number you own.",
+            "One shelf for each series of which you own two books or more (green), in series order. The note says “3 of 7 · missing 2 and 4” when a public book catalogue knows how long the series is. When it does not, the note says “3 owned · missing 2”, and gaps are then known only below the highest number you own. You can also type the length yourself (see Series length by hand).",
             "Set aside (brown): books you started but have not opened in the 90 days before your latest reading. Before, they stood under Not read yet. Reading now and Set aside never hold the same book.",
             "Lock-free (teal). Audiobooks (amber).",
             "Bought twice (pink): every book you own to read, or to listen to, in two stores, for example Kindle and Apple Books. Your own files do not count.",
@@ -68,7 +69,7 @@ enum Guide {
             "On iPhone, a tap on a cover opens the book's page and Back returns to the shelves. On iPad and Mac with a wide window the book shows beside the shelves (see On iPad and Mac).",
         ]),
         Part(title: "On iPad and Mac", text: [
-            "When the window is wide (760 points or more), the screen has two parts side by side. Left: the shelves, with the What next? card, the coloured headings, the rows of covers and the buttons at the top. Right: the page of the book you tapped.",
+            "When the window is wide (760 points or more), the screen has two parts side by side. Left: the shelves, with the What next? card, the coloured headings, the rows of covers and the buttons at the top (including the button for Your reading). Right: the page of the book you tapped.",
             "Tap a cover and the right part shows that book. Tap another cover and it changes. The chosen cover has a purple frame. You never leave the shelves.",
             "When the app opens, the first book of Reading now is shown on the right. If there is none, the right part says “Tap a cover and the book shows here.”",
             "Tap a shelf's heading and that shelf's page (the grid with sort and filter) opens on the left. A tap on a cover there also shows the book on the right. “Next in the series” on the right shows the next book on the right.",
@@ -77,8 +78,43 @@ enum Guide {
         ]),
         Part(title: "What next?", text: [
             "A card above the shelves gives one idea for your next book. It looks at books you own and have not started.",
-            "First idea: the next book of a series whose earlier book you finished, when you own it. Then your newest book. Then the ones that have waited longest, with the month you bought them.",
+            "First ideas: the books on your Up next list, in your order. The first one says “First on your Up next list”. Then the next book of a series whose earlier book you finished, when you own it. Then your newest book. Then the ones that have waited longest, with the month you bought them.",
             "Tap the card to open the book. “Another” shows the next idea. The card is left out when there is no idea.",
+            "The Home Screen widget “Reading” shows one of these ideas too (see The Home Screen widget).",
+        ]),
+        Part(title: "Up next", text: [
+            "Up next is your own list of books to read next.",
+            "On the page of a book you own and have not started, tap “Add to Up next”. The button then reads “Take off Up next”.",
+            "The main screen has a shelf “Up next · 3” (indigo) right under Reading now. It is left out when the list is empty.",
+            "Tap the shelf's heading to open its page. There “Change order” opens a page where you move books up or down or take them off. Cancel closes it without saving. Save keeps your order.",
+            "What next? offers the Up next books first, in your order.",
+            "A book you start or finish leaves the list by itself.",
+            "The list travels between your devices. If two devices changed it, the newer list wins, whole. The two lists are not mixed.",
+        ]),
+        Part(title: "Your reading", text: [
+            "A small button in the top bar of the main screen opens “Your reading”. It has two parts: “Year” and “Numbers”.",
+            "Year: for each year a heading such as “2026 · 8 books”, and under it the books you finished that year, the latest first, with your stars and the day you finished them.",
+            "“Set goal” asks how many books you want to finish this year. Then a line shows how you stand: “8 of 24 · 2 behind”, “ahead”, “on track”, or “goal reached”. A goal holds for the following years until you change it. Empty or 0 means no goal. Cancel closes without saving, Save keeps it.",
+            "The finishing day: today when you mark a book Finished. When a store reports a book as finished, the day the store last saw it open. Books you finished before version 0.5 count on the day they were last opened. On a finished book's page you can correct the day.",
+            "Finished books whose day nobody knows stand under “Day not known”.",
+            "Numbers: how many books you own, how many wishes, how many are lock-free, how many you bought twice. Then bars by store, by kind (ebooks, audiobooks, PDFs), by reading status, by language, books bought per year and books finished per year. Last, your average stars.",
+        ]),
+        Part(title: "Language", text: [
+            "Every book now carries its language. Apple Books and Kobo tell it for most books. Kindle does not.",
+            "Where no store tells, the app makes a careful guess from the title. It guesses only Swedish, German or English, and only when it is sure. A title shorter than 12 letters gets no guess. The letter å means Swedish, the letter ß means German.",
+            "A book's page shows “Language” and lets you change it. What you set by hand is never overwritten.",
+            "On a shelf's page the sort and filter control has a choice “Language”. The Numbers part counts books for each language.",
+        ]),
+        Part(title: "The Home Screen widget", text: [
+            "On iPhone and iPad you can add the widget “Reading” to the Home Screen. It is not on the Mac.",
+            "Small: the book you are reading now. Medium: up to two books you are reading now and one “What next?” idea with its reason.",
+            "A tap opens that book's page in the app.",
+            "The widget refreshes when the shelf changes, and at least every 6 hours. It fetches the covers itself. A book without a cover shows the same coloured title tile as in the app.",
+        ]),
+        Part(title: "Search from your device", text: [
+            "The search of your iPhone, iPad or Mac finds your books. Type a title or an author.",
+            "The result says “You own this · Kobo, Kindle” (with your stores) or “On your wish list”. A tap opens the book's page in the app.",
+            "The list the device searches is kept on the device only. Nothing is sent anywhere.",
         ]),
         Part(title: "The dots and marks", text: [
             "Under each cover stand small coloured dots for its stores: Kobo red-orange, Kindle blue, Apple Books grey, own file teal.",
@@ -112,7 +148,10 @@ enum Guide {
         ]),
         Part(title: "A book's page", text: [
             "On iPhone, and in a narrow window, you reach this page with a tap on a cover. In a wide window on iPad or Mac it shows on the right, beside the shelves.",
-            "The page shows the cover, the title, the author, the series and number, each store the book is in, and when you bought it.",
+            "The page shows the cover, the title, the author, the series and number, the language, each store the book is in, and when you bought it.",
+            "On a book you own and have not started, “Add to Up next” puts it on your Up next list. “Take off Up next” takes it off.",
+            "“Language” shows the book's language and lets you change it. What you set by hand is kept.",
+            "On a finished book you can correct the day you finished it.",
             "Reading status: Not read, Reading or Finished. It is first taken from the store: Apple Books and Kobo report your progress, Kindle does not. Once you set it by hand, your choice stays.",
             "On the page of a book you started, “Gave up on it” moves it from Set aside (or Reading now) to Gave up. “Pick it up again” brings it back.",
             "One Open button for each store starts that store's app at the book. If the app cannot jump to the book, it opens the store's app and you find the book there. Opening is known to work for Kindle on the Mac. Apple Books, Kobo and opening from iPhone or iPad have not been tried yet.",
@@ -129,8 +168,13 @@ enum Guide {
             "If nothing is known but the number, you see “Book 4” and that it is not on your shelf. The last book of a series has no “next”.",
         ]),
         Part(title: "Sort and filter", text: [
-            "Tap a shelf's heading. At the top of the grid are three small menus: one store (or all), to read or to listen (or both), and the order: shelf order, by title, by author, newest first.",
+            "Tap a shelf's heading. At the top of the grid are small menus: one store (or all), to read or to listen (or both), one language (or all), and the order: shelf order, by title, by author, newest first.",
             "A line such as “Showing 12 of 340.” tells you how many books fit. The menus start again each time you open a shelf.",
+        ]),
+        Part(title: "Series length by hand", text: [
+            "On a series shelf's page tap “Set length” and type how many books the series has. Cancel closes without saving. Save keeps it.",
+            "The heading then reads, for example, “3 of 7 · missing 2, 4, 6 and 7”.",
+            "Your number stays even when a public catalogue says something else. An empty field takes your number away again.",
         ]),
         Part(title: "Where to buy", text: [
             "A book on your Wish list has a block “Where to buy”.",
@@ -142,6 +186,7 @@ enum Guide {
             "On the Mac, a lock-free book has three buttons. Open in Apple Books opens the file in Books.",
             "Send to Kobo copies the file into the Dropbox folder Apps › Rakuten Kobo. A Kobo Libra Colour picks it up over Wi-Fi.",
             "Send to Kindle puts a copy in Downloads and opens Amazon's Send to Kindle page. There you choose that file.",
+            "Some of your own EPUB books are kept by Apple Books as a folder, not as one file. Before 0.5 the app refused to send them (“opened-up folder”). Now Send to Kobo and Send to Kindle first pack such a book into one proper .epub file. Apple's own extra files (names starting with iTunes) are left out of the packed book. The original is only read, never changed.",
             "On iPhone and iPad the page says that sending is done on the Mac.",
             "Sending has not yet been proven from start to end.",
         ]),
@@ -152,6 +197,7 @@ enum Guide {
         Part(title: "Settings", text: [
             "Open Settings with the cog button. It holds How it works, What's new, the lists and the version line.",
             "For each store the lists show how many books were found and when. Refresh reads them again. Import Kindle list takes in your Kindle library: Amazon's page saved as a PDF, or a CSV or JSON file.",
+            "“Save the shelf as a list” has two buttons. “PDF” makes a printable list: title, author, series, stores, status and stars, with the wishes last. “Table” makes a file that a spreadsheet opens, with every column: title, author, series, number, stores, kind, language, status, finished, stars, note, bought and lock-free.",
             "Done closes Settings.",
         ]),
         Part(title: "Your data and safety", text: [
@@ -160,6 +206,9 @@ enum Guide {
             "A safety copy is kept on each device once a day, 14 days back.",
             "Since version 0.3 the shelf file has a new format (2), because it also holds your stars, notes, gave-up books and what the catalogues said about series.",
             "A device that still has version 0.2 shows the shelf but changes nothing until you update it. This keeps the new things from being lost.",
+            "Since version 0.5 the shelf file has a newer format (3), because it also holds the Up next list, your reading goals, each book's language and finishing day, and a series length you typed. A device that still has version 0.4 shows the shelf but changes nothing until you update it to 0.5.",
+            "The Up next list and your goals are kept as a whole, each with the time of its last change. If two devices changed one, the newer one wins whole.",
+            "The list for the device's own search stays on the device. Nothing is sent anywhere for it.",
             "What leaves your devices: for covers, series and prices, a book's title and author are sent to public book catalogues: Apple Books (iTunes Search), Open Library and Wikidata. For a barcode scan, the number is sent to Open Library and, if needed, Apple Books. Nothing else is sent, and never your whole list.",
             "Cover pictures are also fetched from the stores' picture servers, as before.",
             "Kobo and Kindle prices are not asked for. Those two links open in your browser.",
@@ -168,6 +217,24 @@ enum Guide {
     ]
 
     static let news: [Release] = [
+        Release(version: "0.5", date: "17 November 2026", items: [
+            "New: Up next. On the page of a book you own and have not started there is a button “Add to Up next” (later “Take off Up next”). The main screen has a new shelf “Up next · N” (indigo) right under Reading now. On that shelf's page, “Change order” opens a page where you move books up or down or take them off, with Cancel and Save. A book you start or finish leaves the list by itself. Before, you had no list of your own.",
+            "Changed: “What next?” now offers your Up next books first, in your order (“First on your Up next list”), and only then its own ideas.",
+            "New: the list travels between your devices. If two devices changed it, the newer list wins, whole.",
+            "New: Your reading. A small button in the top bar of the main screen opens “Your reading”, with two parts: “Year” and “Numbers”.",
+            "New, Year: for each year a heading such as “2026 · 8 books”, with the books you finished that year (latest first), your stars and the day you finished them. “Set goal” asks how many books you want to finish this year. Then a line such as “8 of 24 · 2 behind”, “ahead”, “on track” or “goal reached” shows how you stand. A goal holds for the following years until you change it. Empty or 0 means no goal.",
+            "New: the day a book was finished. It is today when you mark a book Finished, and the day the store last saw it open when a store reports it finished. Books you finished before 0.5 count on the day they were last opened. On a finished book's page you can correct the day. Finished books whose day nobody knows stand under “Day not known”.",
+            "New, Numbers: how many books you own, how many wishes, how many are lock-free and how many you bought twice. Bars by store, by kind, by reading status, by language, books bought per year and books finished per year. Your average stars.",
+            "New: shelf by language. Every book now carries its language. Apple Books and Kobo tell it for most books. Kindle does not. Where no store tells, the app makes a careful guess from the title: only Swedish, German or English, and only when it is sure. Titles shorter than 12 letters get no guess. The letter å means Swedish, the letter ß means German.",
+            "New: a book's page shows “Language” and lets you change it. What you set by hand is never overwritten. On a shelf's page the sort and filter control has a new choice “Language”.",
+            "New on iPhone and iPad: the Home Screen widget “Reading”. Small: the book you are reading now. Medium: up to two books you are reading now and one “What next?” idea with its reason. A tap opens that book's page. It refreshes when the shelf changes and at least every 6 hours. The widget fetches the covers itself. Without a cover it shows the same coloured title tile as in the app. Not on the Mac.",
+            "New: the search of your iPhone, iPad and Mac finds your books. Type a title or an author. The result says “You own this · Kobo, Kindle” or “On your wish list”, and a tap opens the book's page. The list it searches is kept on the device only. Nothing is sent anywhere.",
+            "Fixed: sending your own EPUB books that Apple Books keeps as folders. Before 0.5 the app refused them (“opened-up folder”). Now, on the Mac, Send to Kobo and Send to Kindle first pack such a book into one proper .epub file. Apple's own extra files (names starting with iTunes) are left out of the packed book. The original is only read, never changed.",
+            "New: a series' length by hand. On a series shelf's page, “Set length” asks how many books the series has, with Cancel and Save. The heading then reads, for example, “3 of 7 · missing 2, 4, 6 and 7”. Your number stays even when a catalogue says something else. An empty field takes your number away again.",
+            "New: Settings › “Save the shelf as a list”, with two buttons. “PDF” makes a printable list: title, author, series, stores, status and stars, with the wishes last. “Table” makes a file that a spreadsheet opens, with every column: title, author, series, number, stores, kind, language, status, finished, stars, note, bought and lock-free.",
+            "Changed for safety: the shelf file has a new format (3). A device that still has version 0.4 shows the shelf but changes nothing until it is updated to 0.5. This keeps the new things from being lost.",
+            "Behind the scenes: the app's code is now public on GitHub, with automatic tests on every change. No real book titles are in it. The sample and the tests use made-up books.",
+        ]),
         Release(version: "0.4", date: "17 November 2026", items: [
             "Changed on iPad and Mac: the shelves and the book now stand side by side. Before, iPad and Mac showed the iPhone screen stretched: a tap on a cover replaced the shelves with the book's page, and Back brought the shelves back. Now, when the window is wide (760 points or more), the screen has two parts. Left: the shelves exactly as before. Right: the page of the book you tapped, without leaving the shelves.",
             "New: tap another cover and the right part changes to that book. The chosen cover has a purple frame. When the app opens, the first book of Reading now is shown on the right. If there is none, the right part says “Tap a cover and the book shows here.”",

@@ -108,8 +108,8 @@ extension LibraryData {
                 let before = books[i]
                 if let c = books[i].copies.firstIndex(where: { $0.id == copy.id }) { books[i].copies[c] = copy }
                 if books[i].copies.count == 1 { books[i].title = item.title; books[i].author = item.author }
-                fill(&books[i], from: item)
-                if books[i] != before { books[i].changed = now; summary.updated += 1 }
+                fill(&books[i], from: item, now: now)
+                if Self.differs(books[i], before) { books[i].changed = now; summary.updated += 1 }
             } else if let i = books.firstIndex(where: { b in
                 !b.removed && BookMatch.same(title: b.title, author: b.author, title: item.title, author: item.author)
             }) {
@@ -118,15 +118,15 @@ extension LibraryData {
                 // own list) is the same copy again: nothing is added.
                 if books[i].copies.contains(where: { $0.store == copy.store && $0.isAudio == copy.isAudio && $0.source != .hand }) {
                     let before = books[i]
-                    fill(&books[i], from: item)
-                    if books[i] != before { books[i].changed = now }
+                    fill(&books[i], from: item, now: now)
+                    if Self.differs(books[i], before) { books[i].changed = now }
                     continue
                 }
                 books[i].copies.removeAll { $0.source == .hand && $0.store == copy.store && $0.isAudio == copy.isAudio }
                 books[i].copies.append(copy)
                 books[i].wish = false
                 if books[i].author.isEmpty { books[i].author = item.author }
-                fill(&books[i], from: item)
+                fill(&books[i], from: item, now: now)
                 books[i].changed = now
                 summary.added += 1
             } else if let i = books.firstIndex(where: { $0.id == copy.id }) {
@@ -135,12 +135,12 @@ extension LibraryData {
                 books[i].copies = [copy]
                 books[i].title = item.title
                 books[i].author = item.author
-                fill(&books[i], from: item)
+                fill(&books[i], from: item, now: now)
                 books[i].changed = now
                 summary.added += 1
             } else {
                 var book = Book(id: copy.id, title: item.title, author: item.author, copies: [copy], added: now, changed: now)
-                fill(&book, from: item)
+                fill(&book, from: item, now: now)
                 books.append(book)
                 summary.added += 1
             }
@@ -159,7 +159,21 @@ extension LibraryData {
         return summary
     }
 
-    private func fill(_ book: inout Book, from item: ImportedBook) {
+    /// Whether a store's list changed something on a book. A language alone is not a change: it is not the owner's
+    /// doing and must never win over a rating or a note made on another device (`merged` carries it across).
+    private static func differs(_ a: Book, _ b: Book) -> Bool {
+        var a = a
+        a.language = b.language
+        return a != b
+    }
+
+    private func fill(_ book: inout Book, from item: ImportedBook, now: Date) {
+        if !book.languageByHand {
+            // A store's word beats a guess. But a book held in two stores keeps the language it has:
+            // two stores that disagree must not flip it back and forth.
+            if let code = item.language, book.language == nil || book.copies.count <= 1 { book.language = code }
+            else if book.language == nil { book.language = BookLanguage.guess(title: book.title) }
+        }
         if book.coverURL == nil, let cover = item.coverURL, !cover.isEmpty { book.coverURL = cover }
         if let series = item.series, !series.isEmpty, book.series == nil {
             book.series = series
@@ -169,6 +183,8 @@ extension LibraryData {
         if let p = item.progress, p > (book.progress ?? 0) { book.progress = min(p, 1) }
         guard !book.statusByHand else { return }
         if item.finished {
+            // The day it was finished: the day the store last saw it open, else today.
+            if book.status != .finished, book.finished == nil { book.finished = item.lastOpened?.wholeSeconds ?? now }
             book.status = .finished
         } else if (item.progress ?? 0) >= 0.02, book.status == .unread {
             book.status = .reading
@@ -180,10 +196,17 @@ extension LibraryData {
     public mutating func setStatus(_ status: ReadStatus, of id: String, now: Date = Date()) {
         let now = now.wholeSeconds
         guard let i = books.firstIndex(where: { $0.id == id }) else { return }
+        if status == .finished {
+            if books[i].status != .finished || books[i].finishedDay == nil { books[i].finished = now }
+        } else {
+            books[i].finished = nil
+        }
         books[i].status = status
         books[i].statusByHand = true
         books[i].gaveUp = false
         books[i].changed = now
+        // A book that is started or finished has left the Up next list.
+        if status != .unread, upNext.contains(id) { upNext.removeAll { $0 == id }; upNextChanged = now }
     }
 
     /// The owned book with this title, if there is one: the check before buying or wishing.
@@ -202,7 +225,8 @@ extension LibraryData {
         let match = books.firstIndex { !$0.removed && BookMatch.same(title: $0.title, author: $0.author, title: title, author: author) }
         guard let store else {
             if let i = match { return books[i] }            // already owned or already wished: nothing to add
-            let book = Book(id: "wish:\(newID)", title: title, author: author, wish: true, added: now, changed: now)
+            let book = Book(id: "wish:\(newID)", title: title, author: author, wish: true, added: now, changed: now,
+                            language: BookLanguage.guess(title: title))
             books.append(book)
             return book
         }
@@ -213,7 +237,8 @@ extension LibraryData {
             books[i].changed = now
             return books[i]
         }
-        let book = Book(id: copy.id, title: title, author: author, copies: [copy], added: now, changed: now)
+        let book = Book(id: copy.id, title: title, author: author, copies: [copy], added: now, changed: now,
+                        language: BookLanguage.guess(title: title))
         books.append(book)
         return book
     }
@@ -255,6 +280,9 @@ extension LibraryData {
 
         let reading = owned.filter(current).sorted(by: recent)
         if !reading.isEmpty { out.append(Shelf(id: "reading", title: "Reading now", colour: "purple", note: nil, books: reading)) }
+
+        let queue = upNextBooks
+        if !queue.isEmpty { out.append(Shelf(id: "upnext", title: "Up next · \(queue.count)", colour: "indigo", note: nil, books: queue)) }
 
         let unread = owned.filter { $0.status == .unread }
             .sorted { ($0.purchased ?? .distantPast, $1.title) > ($1.purchased ?? .distantPast, $0.title) }
@@ -341,7 +369,7 @@ extension LibraryData {
         return others.contains { ($0.seriesNumber ?? 0) > Double(next) } ? SeriesNext(number: next, title: nil, owned: nil) : nil
     }
 
-    /// "What next?": the next book of a series whose earlier book is finished, then the newest purchase,
+    /// "What next?": first the owner's own Up next list in his order, then the next book of a series whose earlier book is finished, then the newest purchase,
     /// then the books that have waited longest. Only books on the shelf that are not read yet.
     public func whatNext(limit: Int = 8) -> [ReadSuggestion] {
         var out: [ReadSuggestion] = []
@@ -350,6 +378,9 @@ extension LibraryData {
             out.append(ReadSuggestion(book: book, reason: reason))
         }
         let owned = self.owned
+        for (place, book) in upNextBooks.enumerated() {
+            add(book, place == 0 ? "First on your Up next list" : "Number \(place + 1) on your Up next list")
+        }
         let done = owned.filter { $0.status == .finished && $0.series != nil }
             .sorted { ($0.lastOpened ?? $0.changed) > ($1.lastOpened ?? $1.changed) }
         for book in done {
@@ -406,8 +437,12 @@ extension LibraryData {
         series[BookMatch.plain(name.trimmingCharacters(in: .whitespaces))]
     }
 
+    /// What a catalogue said about a series. A total the owner typed himself stays.
     public mutating func setSeries(_ info: SeriesInfo, for name: String) {
-        series[BookMatch.plain(name.trimmingCharacters(in: .whitespaces))] = info
+        let key = BookMatch.plain(name.trimmingCharacters(in: .whitespaces))
+        var info = info
+        if let mine = series[key], mine.byHand { info.total = mine.total; info.byHand = true }
+        series[key] = info
     }
 
     /// The series on the shelf (2 or more books) with their names as written, for looking them up.
@@ -455,15 +490,18 @@ public struct ShelfFilter: Equatable, Sendable {
     public var store: BookStore?
     public var kind: Kind
     public var order: Order
+    /// Only books in this language (a two-letter code). nil = every language.
+    public var language: String?
 
-    public init(store: BookStore? = nil, kind: Kind = .all, order: Order = .shelf) {
-        self.store = store; self.kind = kind; self.order = order
+    public init(store: BookStore? = nil, kind: Kind = .all, order: Order = .shelf, language: String? = nil) {
+        self.store = store; self.kind = kind; self.order = order; self.language = language
     }
 
-    public var isPlain: Bool { store == nil && kind == .all && order == .shelf }
+    public var isPlain: Bool { store == nil && kind == .all && order == .shelf && language == nil }
 
     public func apply(to books: [Book]) -> [Book] {
         var out = books
+        if let language { out = out.filter { $0.language == language } }
         if let store { out = out.filter { $0.copies.contains { $0.store == store } } }
         switch kind {
         case .all: break

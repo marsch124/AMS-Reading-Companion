@@ -12,6 +12,7 @@ struct BookPage: View {
     @State private var price: PriceFound?
     @State private var priceAsked = false
     @State private var wishedNext = false
+    @State private var editingDay = false
 
     private let colour = "purple"
 
@@ -39,6 +40,9 @@ struct BookPage: View {
                 header(book)
                 statusRow(book)
                 if book.status == .reading || book.gaveUp { gaveUpRow(book) }
+                if model.data.canBeUpNext(book) { upNextRow(book) }
+                if book.status == .finished { finishedRow(book) }
+                if !book.wish { languageRow(book) }
                 starsAndNote(book)
                 if let next = model.data.nextInSeries(after: book) { nextRow(next, after: book) }
                 if book.wish { buying(book) }
@@ -144,7 +148,7 @@ struct BookPage: View {
         HStack(spacing: 10) {
             if book.gaveUp {
                 Text("You gave this one up.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.secondary)
                 Button("Pick it up again") { model.setGaveUp(false, of: book.id) }
                     .accessibilityIdentifier("book-pick-up")
             } else {
@@ -156,6 +160,81 @@ struct BookPage: View {
         .foregroundStyle(Theme.text("brown"))
         .buttonStyle(.plain)
         .disabled(model.readOnly)
+    }
+
+    // MARK: Up next, finishing day, language
+
+    private func upNextRow(_ book: Book) -> some View {
+        let place = model.data.upNextBooks.firstIndex { $0.id == book.id }
+        return HStack(spacing: 10) {
+            if let place {
+                Text("Number \(place + 1) on your Up next list.")
+                    .foregroundStyle(Color.secondary)
+                    .accessibilityIdentifier("book-upnext-place")
+                Button("Take off Up next") { model.removeUpNext(book.id) }
+                    .accessibilityIdentifier("book-upnext-off")
+            } else {
+                Button("Add to Up next") { model.addUpNext(book.id) }
+                    .accessibilityIdentifier("book-upnext-add")
+            }
+        }
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(Theme.text("indigo"))
+        .buttonStyle(.plain)
+        .disabled(model.readOnly)
+    }
+
+    private func finishedRow(_ book: Book) -> some View {
+        HStack(spacing: 10) {
+            if let day = book.finishedDay {
+                Text("Finished \(day.formatted(.dateTime.day().month(.abbreviated).year())).")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("book-finished-day")
+            } else {
+                Text("Finishing day not known.")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("book-finished-day")
+            }
+            if !model.readOnly {
+                Button(book.finishedDay == nil ? "Set the day" : "Change") { editingDay = true }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.text(colour))
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("book-finished-change")
+            }
+        }
+        .font(.footnote)
+        .sheet(isPresented: $editingDay) {
+            FinishedDayPage(bookID: book.id, day: book.finishedDay ?? Date())
+        }
+    }
+
+    /// The language a store told or the title gave away. The menu sets it by hand; that choice stays.
+    private func languageRow(_ book: Book) -> some View {
+        var codes = ["sv", "en", "de"]
+        for found in LibraryData.languages(in: model.data.owned) where !codes.contains(found.code) { codes.append(found.code) }
+        return HStack(spacing: 6) {
+            Text("Language")
+                .foregroundStyle(.secondary)
+            if model.readOnly {
+                Text(book.language.map(BookLanguage.name) ?? "Not known")
+            } else {
+                Menu {
+                    ForEach(codes, id: \.self) { code in
+                        Button(BookLanguage.name(code)) { model.setLanguage(code, of: book.id) }
+                    }
+                    Button("Not known") { model.setLanguage(nil, of: book.id) }
+                } label: {
+                    Text(book.language.map(BookLanguage.name) ?? "Not known")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.text("blue"))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .accessibilityIdentifier("book-language")
+            }
+        }
+        .font(.footnote)
     }
 
     // MARK: Stars and note

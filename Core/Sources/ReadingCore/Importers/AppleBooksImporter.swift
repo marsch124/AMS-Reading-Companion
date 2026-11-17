@@ -17,7 +17,7 @@ public enum AppleBooksImporter {
             let rows = copy.rows(table: "ZBKLIBRARYASSET", wanted: [
                 "Z_PK", "ZASSETID", "ZSTOREID", "ZTITLE", "ZAUTHOR", "ZCONTENTTYPE", "ZISSAMPLE",
                 "ZISSTOREAUDIOBOOK", "ZISFINISHED", "ZREADINGPROGRESS", "ZPURCHASEDATE", "ZLASTOPENDATE",
-                "ZPATH", "ZCOVERURL", "ZSERIESID", "ZSEQUENCENUMBER", "ZSERIESCONTAINER", "ZKIND"])
+                "ZPATH", "ZCOVERURL", "ZSERIESID", "ZSEQUENCENUMBER", "ZSERIESCONTAINER", "ZKIND", "ZLANGUAGE"])
             // Series containers: by primary key and by store id.
             var seriesByPK: [Int: String] = [:]
             var seriesByID: [String: String] = [:]
@@ -56,7 +56,8 @@ public enum AppleBooksImporter {
                     progress: r["ZREADINGPROGRESS"]?.double.map { min(1, max(0, $0)) },
                     finished: r["ZISFINISHED"]?.int == 1,
                     purchased: r["ZPURCHASEDATE"]?.double.map { Date(timeIntervalSince1970: $0 + coreDataEpoch) },
-                    lastOpened: r["ZLASTOPENDATE"]?.double.map { Date(timeIntervalSince1970: $0 + coreDataEpoch) }))
+                    lastOpened: r["ZLASTOPENDATE"]?.double.map { Date(timeIntervalSince1970: $0 + coreDataEpoch) },
+                    language: BookLanguage.code(r["ZLANGUAGE"]?.string)))
             }
             return out
         }
