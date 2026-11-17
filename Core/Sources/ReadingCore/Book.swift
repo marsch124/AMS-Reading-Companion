@@ -59,20 +59,28 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
     public var added: Date
     /// When this book last changed. Between two devices the newer change wins.
     public var changed: Date
+    /// The owner's own stars, 1 to 5.
+    public var rating: Int?
+    /// The owner's own line about the book.
+    public var note: String?
+    /// Started and put away for good: it leaves "Set aside" and stands under "Gave up".
+    public var gaveUp: Bool
 
     public init(id: String, title: String, author: String = "", coverURL: String? = nil, series: String? = nil,
                 seriesNumber: Double? = nil, copies: [BookCopy] = [], status: ReadStatus = .unread,
                 statusByHand: Bool = false, wish: Bool = false, removed: Bool = false, progress: Double? = nil,
-                lastOpened: Date? = nil, added: Date = Date(), changed: Date = Date()) {
+                lastOpened: Date? = nil, added: Date = Date(), changed: Date = Date(),
+                rating: Int? = nil, note: String? = nil, gaveUp: Bool = false) {
         self.id = id; self.title = title; self.author = author; self.coverURL = coverURL; self.series = series
         self.seriesNumber = seriesNumber; self.copies = copies; self.status = status
         self.statusByHand = statusByHand; self.wish = wish; self.removed = removed; self.progress = progress
         self.lastOpened = lastOpened; self.added = added; self.changed = changed
+        self.rating = rating; self.note = note; self.gaveUp = gaveUp
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, author, coverURL, series, seriesNumber, copies, status, statusByHand, wish, removed
-        case progress, lastOpened, added, changed
+        case progress, lastOpened, added, changed, rating, note, gaveUp
     }
 
     public init(from decoder: Decoder) throws {
@@ -92,6 +100,9 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
         lastOpened = try? c.decodeIfPresent(Date.self, forKey: .lastOpened)
         added = (try? c.decode(Date.self, forKey: .added)) ?? Date(timeIntervalSince1970: 0)
         changed = (try? c.decode(Date.self, forKey: .changed)) ?? Date(timeIntervalSince1970: 0)
+        rating = try? c.decodeIfPresent(Int.self, forKey: .rating)
+        note = try? c.decodeIfPresent(String.self, forKey: .note)
+        gaveUp = (try? c.decode(Bool.self, forKey: .gaveUp)) ?? false
     }
 
     /// The stores this book is in, each once, in a fixed order.
@@ -121,26 +132,48 @@ public struct ImportNote: Codable, Equatable, Sendable {
     public init(date: Date, count: Int) { self.date = date; self.count = count }
 }
 
+/// One volume of a series, as a catalogue lists it.
+public struct SeriesVolume: Codable, Equatable, Sendable {
+    public var number: Double
+    public var title: String
+    public init(number: Double, title: String) { self.number = number; self.title = title }
+}
+
+/// What a catalogue knows about a series: how many books it has and what they are called.
+public struct SeriesInfo: Codable, Equatable, Sendable {
+    public var total: Int?
+    public var volumes: [SeriesVolume]
+    public var checked: Date
+    public init(total: Int?, volumes: [SeriesVolume] = [], checked: Date = Date()) {
+        self.total = total; self.volumes = volumes; self.checked = checked
+    }
+}
+
 /// The whole shelf as it is kept in the file.
 public struct LibraryData: Codable, Equatable, Sendable {
     /// Raised when a new version adds something an older version would lose by saving.
-    public static let currentFormat = 1
+    /// 2 (version 0.3): stars, note and "gave up" on a book, and what is known about each series.
+    public static let currentFormat = 2
 
     public var format: Int
     public var books: [Book]
     public var imports: [String: ImportNote]
+    /// Per series (its name written plainly): what a catalogue said about it.
+    public var series: [String: SeriesInfo]
 
-    public init(format: Int = LibraryData.currentFormat, books: [Book] = [], imports: [String: ImportNote] = [:]) {
-        self.format = format; self.books = books; self.imports = imports
+    public init(format: Int = LibraryData.currentFormat, books: [Book] = [], imports: [String: ImportNote] = [:],
+                series: [String: SeriesInfo] = [:]) {
+        self.format = format; self.books = books; self.imports = imports; self.series = series
     }
 
-    enum CodingKeys: String, CodingKey { case format, books, imports }
+    enum CodingKeys: String, CodingKey { case format, books, imports, series }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         format = (try? c.decode(Int.self, forKey: .format)) ?? 1
         books = ((try? c.decode([Lossy<Book>].self, forKey: .books)) ?? []).compactMap(\.value)
         imports = (try? c.decode([String: ImportNote].self, forKey: .imports)) ?? [:]
+        series = (try? c.decode([String: SeriesInfo].self, forKey: .series)) ?? [:]
     }
 
     /// A file written by a newer version of the app: show it, change nothing.
@@ -176,7 +209,11 @@ public struct LibraryData: Codable, Equatable, Sendable {
         for (store, note) in b.imports where note.date > (imports[store]?.date ?? .distantPast) {
             imports[store] = note
         }
-        return LibraryData(format: max(a.format, b.format), books: order.compactMap { byID[$0] }, imports: imports)
+        var series = a.series
+        for (name, info) in b.series where info.checked > (series[name]?.checked ?? .distantPast) {
+            series[name] = info
+        }
+        return LibraryData(format: max(a.format, b.format), books: order.compactMap { byID[$0] }, imports: imports, series: series)
     }
 }
 

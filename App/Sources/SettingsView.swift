@@ -88,7 +88,7 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settingsDone")
                 }
             }
-            .fileImporter(isPresented: $pickingFile, allowedContentTypes: [.commaSeparatedText, .json, .plainText, .tabSeparatedText]) { result in
+            .fileImporter(isPresented: $pickingFile, allowedContentTypes: [.pdf, .commaSeparatedText, .json, .plainText, .tabSeparatedText]) { result in
                 if case .success(let url) = result { model.importKindleFile(url) }
             }
         }

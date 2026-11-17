@@ -7,9 +7,9 @@ final class LibraryTests: XCTestCase {
     private func imp(_ store: BookStore, _ id: String, _ title: String, _ author: String = "Ann Author",
                      kind: BookKind = .ebook, sample: Bool = false, lockFree: Bool = false,
                      progress: Double? = nil, finished: Bool = false,
-                     series: String? = nil, number: Double? = nil) -> ImportedBook {
+                     series: String? = nil, number: Double? = nil, purchased: Date? = nil) -> ImportedBook {
         ImportedBook(store: store, storeID: id, title: title, author: author, kind: kind, isSample: sample,
-                     lockFree: lockFree, series: series, seriesNumber: number, progress: progress, finished: finished)
+                     lockFree: lockFree, series: series, seriesNumber: number, progress: progress, finished: finished, purchased: purchased)
     }
 
     private func library(_ items: [ImportedBook], source: CopySource = .kobo) -> LibraryData {
@@ -191,13 +191,13 @@ final class LibraryTests: XCTestCase {
 
     // MARK: Sample
 
-    func testSampleShowsAllSevenKindsOfShelf() {
+    func testSampleShowsEveryKindOfShelf() {
         let shelves = LibraryData.sample.shelves()
         XCTAssertEqual(shelves.map(\.id).filter { !$0.hasPrefix("series-") },
-                       ["reading", "unread", "lockfree", "audio", "finished", "wish"])
+                       ["reading", "unread", "aside", "lockfree", "audio", "twice", "finished", "gaveup", "wish"])
         XCTAssertEqual(shelves.filter { $0.id.hasPrefix("series-") }.count, 2)
         XCTAssertTrue(shelves.allSatisfy { !$0.books.isEmpty })
-        XCTAssertEqual(shelves.first { $0.id == "series-the lantern cycle" }?.note, "3 owned · missing 3")
+        XCTAssertEqual(shelves.first { $0.id == "series-the lantern cycle" }?.note, "3 of 5 · missing 3 and 5")
         XCTAssertTrue(LibraryData.sample.books.allSatisfy { $0.coverURL == nil })
     }
 
@@ -216,7 +216,7 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(data.books.filter { $0.id == "kobo:k1" }.count, 1)
     }
 
-    /// "Reading now" holds what was opened lately. A book started long ago stands under "Not read yet" again,
+    /// "Reading now" holds what was opened lately. A book started long ago stands under "Set aside",
     /// unless the owner himself said he is reading it.
     func testReadingNowLeavesOutBooksStartedLongAgo() {
         var data = LibraryData()
@@ -230,7 +230,9 @@ final class LibraryTests: XCTestCase {
         data.setStatus(.reading, of: "apple:3")
         let shelves = data.shelves()
         XCTAssertEqual(Set(shelves.first { $0.id == "reading" }?.books.map(\.id) ?? []), ["apple:1", "apple:3"])
-        XCTAssertEqual(shelves.first { $0.id == "unread" }?.books.map(\.id), ["apple:2"])
+        XCTAssertEqual(shelves.first { $0.id == "aside" }?.books.map(\.id), ["apple:2"])
+        XCTAssertEqual(shelves.first { $0.id == "aside" }?.title, "Set aside · 1")
+        XCTAssertNil(shelves.first { $0.id == "unread" })
     }
 
     /// A book on the shelf that its store later marks as a sample or a built-in item leaves the shelf,
@@ -261,5 +263,123 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(data.owned.count, 2)
         XCTAssertEqual(data.book("kindle:B0REAL")?.copies.count, 1)
         XCTAssertEqual(data.book("kindle:B0REAL")?.status, .finished)
+    }
+
+    // MARK: Version 0.3 rules
+
+    private func day(_ n: Int) -> Date { t0.addingTimeInterval(Double(n) * 86_400) }
+
+    func testUnreadHoldsOnlyNotReadBooks() {
+        var lib = library([imp(.kobo, "a", "Quiet Pond", progress: 0.5), imp(.kobo, "b", "Fresh Page")])
+        XCTAssertEqual(lib.shelf("unread")?.books.map(\.id), ["kobo:b"])
+        lib.setStatus(.reading, of: "kobo:b", now: t0)
+        XCTAssertNil(lib.shelf("unread"))
+    }
+
+    func testBoughtTwiceShelfHoldsSameKindInTwoStores() {
+        var lib = library([imp(.kobo, "k1", "Tidal Maps"), imp(.kobo, "k2", "Solo Book")])
+        lib.take([imp(.kindle, "A1", "Tidal Maps")], source: .kindle, complete: false, now: t0)
+        XCTAssertEqual(lib.shelf("twice")?.books.map(\.title), ["Tidal Maps"])
+        XCTAssertEqual(lib.shelf("twice")?.title, "Bought twice · 1")
+    }
+
+    func testGaveUpLeavesReadingAndAsideAndAnyStatusEndsIt() {
+        var lib = LibraryData()
+        lib.take([imp(.kobo, "a", "Dry Creek", progress: 0.4), imp(.kobo, "b", "Wet Creek", progress: 0.4)],
+                 source: .kobo, complete: true, now: t0)
+        lib.setGaveUp(true, of: "kobo:a", now: t0)
+        XCTAssertEqual(lib.shelf("gaveup")?.books.map(\.id), ["kobo:a"])
+        XCTAssertEqual(lib.shelf("gaveup")?.title, "Gave up · 1")
+        XCTAssertEqual(lib.shelf("reading")?.books.map(\.id), ["kobo:b"])
+        XCTAssertNil(lib.shelf("aside"))
+        lib.setStatus(.reading, of: "kobo:a", now: t0)
+        XCTAssertNil(lib.shelf("gaveup"))
+        XCTAssertFalse(lib.book("kobo:a")!.gaveUp)
+    }
+
+    func testSeriesNoteWithAndWithoutWhatACatalogueSaid() {
+        var lib = LibraryData()
+        lib.take([imp(.kobo, "s1", "Lamp One", series: "Lamp Cycle", number: 1),
+                  imp(.kobo, "s2", "Lamp Two", series: "Lamp Cycle", number: 2),
+                  imp(.kobo, "s4", "Lamp Four", series: "Lamp Cycle", number: 4)],
+                 source: .kobo, complete: false, now: t0)
+        XCTAssertEqual(lib.shelf("series-lamp cycle")?.note, "3 owned · missing 3")
+        lib.setSeries(SeriesInfo(total: 7, checked: t0), for: "Lamp Cycle")
+        XCTAssertEqual(lib.shelf("series-lamp cycle")?.note, "3 of 7 · missing 3, 5, 6 and 7")
+    }
+
+    func testNextInSeriesFindsTheBookThenTheNameThenTheNumber() {
+        var lib = LibraryData()
+        lib.take([imp(.kobo, "s1", "Lamp One", series: "Lamp Cycle", number: 1),
+                  imp(.kobo, "s2", "Lamp Two", series: "Lamp Cycle", number: 2),
+                  imp(.kobo, "s5", "Lamp Five", series: "Lamp Cycle", number: 5)],
+                 source: .kobo, complete: false, now: t0)
+        let one = lib.book("kobo:s1")!, two = lib.book("kobo:s2")!, five = lib.book("kobo:s5")!
+        XCTAssertEqual(lib.nextInSeries(after: one)?.owned?.id, "kobo:s2")
+        XCTAssertEqual(lib.nextInSeries(after: two), SeriesNext(number: 3, title: nil, owned: nil))   // later book on shelf
+        XCTAssertNil(lib.nextInSeries(after: five))                                                    // nothing known
+        lib.setSeries(SeriesInfo(total: 5, volumes: [SeriesVolume(number: 3, title: "Lamp Three")], checked: t0), for: "Lamp Cycle")
+        XCTAssertEqual(lib.nextInSeries(after: two), SeriesNext(number: 3, title: "Lamp Three", owned: nil))
+        XCTAssertEqual(lib.nextInSeries(after: lib.book("kobo:s2")!)?.title, "Lamp Three")
+        XCTAssertNil(lib.nextInSeries(after: five))                                                    // complete
+    }
+
+    func testWhatNextOrderAndNoBookTwice() {
+        var lib = LibraryData()
+        lib.take([imp(.kobo, "s1", "Lamp One", finished: true, series: "Lamp Cycle", number: 1, purchased: day(1)),
+                  imp(.kobo, "s2", "Lamp Two", series: "Lamp Cycle", number: 2, purchased: day(2)),
+                  imp(.kobo, "n", "Newest Tale", purchased: day(50)),
+                  imp(.kobo, "o", "Oldest Tale", purchased: t0.addingTimeInterval(-400 * 86_400)),
+                  imp(.kobo, "r", "Busy Page", progress: 0.5, purchased: day(60))],
+                 source: .kobo, complete: false, now: t0)
+        let next = lib.whatNext()
+        XCTAssertEqual(next.map(\.book.id), ["kobo:s2", "kobo:n", "kobo:o"])   
+        XCTAssertEqual(next[0].reason, "Next in Lamp Cycle, after “Lamp One”")
+        XCTAssertEqual(next[1].reason, "Your newest book")
+        XCTAssertTrue(next[2].reason.hasPrefix("Waiting since "))
+    }
+
+    func testRatingNoteAndCover() {
+        var lib = library([imp(.kobo, "a", "Quiet Pond", "Ann Author")])
+        lib.setRating(9, of: "kobo:a", now: t0)
+        XCTAssertEqual(lib.book("kobo:a")?.rating, 5)
+        lib.setRating(nil, of: "kobo:a", now: t0)
+        XCTAssertNil(lib.book("kobo:a")?.rating)
+        lib.setNote("  lovely heron scenes \n", of: "kobo:a", now: t0)
+        XCTAssertEqual(lib.book("kobo:a")?.note, "lovely heron scenes")
+        XCTAssertEqual(lib.find("heron").count, 1)
+        lib.setNote("   ", of: "kobo:a", now: t0)
+        XCTAssertNil(lib.book("kobo:a")?.note)
+        lib.setCover("https://example.test/one.jpg", of: "kobo:a", now: t0)
+        lib.setCover("https://example.test/two.jpg", of: "kobo:a", now: t0)
+        XCTAssertEqual(lib.book("kobo:a")?.coverURL, "https://example.test/one.jpg")
+    }
+
+    func testShelfFilterNarrowsAndOrders() {
+        var lib = library([imp(.kobo, "k1", "Beta Book", "Zed Zander"), imp(.kobo, "k2", "Alpha Book", "Yan Young")])
+        lib.take([imp(.apple, "a1", "Gamma Book", "Xia Xu", kind: .audiobook)], source: .apple, complete: false, now: t0)
+        let all = lib.owned
+        XCTAssertEqual(ShelfFilter(store: .apple).apply(to: all).map(\.title), ["Gamma Book"])
+        XCTAssertEqual(ShelfFilter(kind: .listen).apply(to: all).map(\.title), ["Gamma Book"])
+        XCTAssertEqual(ShelfFilter(kind: .read).apply(to: all).count, 2)
+        XCTAssertEqual(ShelfFilter(order: .title).apply(to: all).map(\.title), ["Alpha Book", "Beta Book", "Gamma Book"])
+        XCTAssertEqual(ShelfFilter(order: .author).apply(to: all).map(\.title), ["Gamma Book", "Alpha Book", "Beta Book"])
+        XCTAssertTrue(ShelfFilter().isPlain)
+    }
+
+    func testFormatTwoMergeKeepsNewerSeriesInfoAndFormatOneStillDecodes() throws {
+        var a = LibraryData(), b = LibraryData()
+        a.setSeries(SeriesInfo(total: 3, checked: day(1)), for: "Lamp Cycle")
+        b.setSeries(SeriesInfo(total: 5, checked: day(2)), for: "Lamp Cycle")
+        XCTAssertEqual(LibraryData.merged(a, b).seriesInfo(for: "Lamp Cycle")?.total, 5)
+        XCTAssertEqual(LibraryData.merged(b, a).seriesInfo(for: "Lamp Cycle")?.total, 5)
+        XCTAssertEqual(LibraryData.currentFormat, 2)
+        let old = #"{"format":1,"books":[{"id":"b1","title":"Tidal Maps","added":"2026-01-01T00:00:00Z","changed":"2026-01-01T00:00:00Z"}]}"#
+        let lib = try LibraryData.decode(Data(old.utf8))
+        XCTAssertEqual(lib.format, 1)
+        XCTAssertNil(lib.books[0].rating)
+        XCTAssertNil(lib.books[0].note)
+        XCTAssertFalse(lib.books[0].gaveUp)
+        XCTAssertTrue(lib.series.isEmpty)
     }
 }

@@ -182,6 +182,7 @@ extension LibraryData {
         guard let i = books.firstIndex(where: { $0.id == id }) else { return }
         books[i].status = status
         books[i].statusByHand = true
+        books[i].gaveUp = false
         books[i].changed = now
     }
 
@@ -233,42 +234,50 @@ extension LibraryData {
 
     // MARK: Shelves and search
 
+    /// Tells whether a started book counts as being read now: opened in the 90 days before the latest reading,
+    /// or set to Reading by the owner himself. A book he gave up never counts.
+    private func currentReader() -> (Book) -> Bool {
+        let latest = owned.compactMap(\.lastOpened).max() ?? Date()
+        return { book in
+            guard book.status == .reading, !book.gaveUp else { return false }
+            if book.statusByHand { return true }
+            guard let opened = book.lastOpened else { return true }   // the store gave no day: take its word
+            return latest.timeIntervalSince(opened) <= 90 * 86_400
+        }
+    }
+
     public func shelves() -> [Shelf] {
         var out: [Shelf] = []
         let owned = self.owned
         let byTitle: (Book, Book) -> Bool = { BookMatch.titleKey($0.title) < BookMatch.titleKey($1.title) }
         let recent: (Book, Book) -> Bool = { ($0.lastOpened ?? $0.changed) > ($1.lastOpened ?? $1.changed) }
+        let current = currentReader()
 
-        // "Reading now" is what was opened lately: a book the store says was started but that has not been opened
-        // in the 90 days before the latest reading goes back to "Not read yet". A status set by hand always counts.
-        let latest = owned.compactMap(\.lastOpened).max() ?? Date()
-        let current: (Book) -> Bool = { book in
-            guard book.status == .reading else { return false }
-            if book.statusByHand { return true }
-            guard let opened = book.lastOpened else { return true }   // the store gave no day: take its word
-            return latest.timeIntervalSince(opened) <= 90 * 86_400
-        }
         let reading = owned.filter(current).sorted(by: recent)
         if !reading.isEmpty { out.append(Shelf(id: "reading", title: "Reading now", colour: "purple", note: nil, books: reading)) }
 
-        let unread = owned.filter { $0.status == .unread || ($0.status == .reading && !current($0)) }
+        let unread = owned.filter { $0.status == .unread }
             .sorted { ($0.purchased ?? .distantPast, $1.title) > ($1.purchased ?? .distantPast, $0.title) }
         if !unread.isEmpty { out.append(Shelf(id: "unread", title: "Not read yet · \(unread.count)", colour: "red", note: nil, books: unread)) }
 
-        var series: [String: [Book]] = [:]
+        var members: [String: [Book]] = [:]
         var names: [String: String] = [:]
         for book in owned {
             guard let name = book.series?.trimmingCharacters(in: .whitespaces), !name.isEmpty else { continue }
             let key = BookMatch.plain(name)
-            series[key, default: []].append(book)
+            members[key, default: []].append(book)
             names[key] = names[key] ?? name
         }
-        for key in series.keys.sorted() {
-            guard let members = series[key], members.count >= 2 else { continue }
-            let sorted = members.sorted { ($0.seriesNumber ?? .infinity, $0.title) < ($1.seriesNumber ?? .infinity, $1.title) }
+        for key in members.keys.sorted() {
+            guard let books = members[key], books.count >= 2 else { continue }
+            let sorted = books.sorted { ($0.seriesNumber ?? .infinity, $0.title) < ($1.seriesNumber ?? .infinity, $1.title) }
             out.append(Shelf(id: "series-\(key)", title: names[key] ?? key, colour: "green",
-                             note: Self.seriesNote(sorted), books: sorted))
+                             note: Self.seriesNote(sorted, info: series[key]), books: sorted))
         }
+
+        // Started, then left alone: not opened in the 90 days before the latest reading.
+        let aside = owned.filter { $0.status == .reading && !$0.gaveUp && !current($0) }.sorted(by: recent)
+        if !aside.isEmpty { out.append(Shelf(id: "aside", title: "Set aside · \(aside.count)", colour: "brown", note: nil, books: aside)) }
 
         let lockFree = owned.filter(\.isLockFree).sorted(by: byTitle)
         if !lockFree.isEmpty { out.append(Shelf(id: "lockfree", title: "Lock-free · \(lockFree.count)", colour: "teal", note: nil, books: lockFree)) }
@@ -276,8 +285,14 @@ extension LibraryData {
         let audio = owned.filter(\.isAudio).sorted(by: byTitle)
         if !audio.isEmpty { out.append(Shelf(id: "audio", title: "Audiobooks · \(audio.count)", colour: "amber", note: nil, books: audio)) }
 
+        let twice = owned.filter(\.ownedTwice).sorted(by: byTitle)
+        if !twice.isEmpty { out.append(Shelf(id: "twice", title: "Bought twice · \(twice.count)", colour: "pink", note: nil, books: twice)) }
+
         let finished = owned.filter { $0.status == .finished }.sorted(by: recent)
         if !finished.isEmpty { out.append(Shelf(id: "finished", title: "Finished · \(finished.count)", colour: "grey", note: nil, books: finished)) }
+
+        let gaveUp = owned.filter { $0.gaveUp && $0.status == .reading }.sorted(by: byTitle)
+        if !gaveUp.isEmpty { out.append(Shelf(id: "gaveup", title: "Gave up · \(gaveUp.count)", colour: "grey", note: nil, books: gaveUp)) }
 
         let wishes = shown.filter(\.wish).sorted { $0.added > $1.added }
         out.append(Shelf(id: "wish", title: wishes.isEmpty ? "Wish list" : "Wish list · \(wishes.count)", colour: "blue",
@@ -285,27 +300,182 @@ extension LibraryData {
         return out
     }
 
-    /// "3 owned · missing 2 and 4". Gaps are only known below the highest number that is owned.
-    static func seriesNote(_ books: [Book]) -> String {
-        var note = "\(books.count) owned"
+    public func shelf(_ id: String) -> Shelf? { shelves().first { $0.id == id } }
+
+    /// "3 of 7 · missing 2, 4, 6 and 7" when a catalogue told how long the series is; otherwise "3 owned · missing 2 and 4",
+    /// where gaps are only known below the highest number that is owned.
+    static func seriesNote(_ books: [Book], info: SeriesInfo? = nil) -> String {
         let numbers = Set(books.compactMap(\.seriesNumber).filter { $0 >= 1 && $0 == $0.rounded() }.map { Int($0) })
-        guard let top = numbers.max(), top <= 60 else { return note }
-        let missing = (1..<top).filter { !numbers.contains($0) }.map(String.init)
+        let top = numbers.max() ?? 0
+        var note: String
+        var last = top - 1
+        if let total = info?.total, total >= max(top, books.count), total <= 200 {
+            note = "\(books.count) of \(total)"
+            last = total
+        } else {
+            note = "\(books.count) owned"
+        }
+        guard top >= 1, top <= 200, last >= 1 else { return note }
+        let missing = (1...last).filter { !numbers.contains($0) }.map(String.init)
         guard !missing.isEmpty, missing.count <= 8 else { return note }
         let list = missing.count == 1 ? missing[0] : missing.dropLast().joined(separator: ", ") + " and " + missing.last!
-        note += " · missing \(list)"
-        return note
+        return note + " · missing \(list)"
     }
 
-    /// Every shown book in which each typed word is found: in the title, the author or the series.
+    /// The book that follows this one in its series: on the shelf, or known by name from a catalogue, or just a gap.
+    public func nextInSeries(after book: Book) -> SeriesNext? {
+        guard let name = book.series?.trimmingCharacters(in: .whitespaces), !name.isEmpty,
+              let number = book.seriesNumber, number >= 1, number == number.rounded() else { return nil }
+        let key = BookMatch.plain(name)
+        let next = Int(number) + 1
+        let others = owned.filter { $0.id != book.id && BookMatch.plain($0.series ?? "") == key }
+        if let have = others.first(where: { $0.seriesNumber == Double(next) }) {
+            return SeriesNext(number: next, title: have.title, owned: have)
+        }
+        let info = series[key]
+        if let volume = info?.volumes.first(where: { $0.number == Double(next) }) {
+            return SeriesNext(number: next, title: volume.title, owned: nil)
+        }
+        if let total = info?.total { return next <= total ? SeriesNext(number: next, title: nil, owned: nil) : nil }
+        // Nothing known about the series: a next book is only certain when a later one is on the shelf.
+        return others.contains { ($0.seriesNumber ?? 0) > Double(next) } ? SeriesNext(number: next, title: nil, owned: nil) : nil
+    }
+
+    /// "What next?": the next book of a series whose earlier book is finished, then the newest purchase,
+    /// then the books that have waited longest. Only books on the shelf that are not read yet.
+    public func whatNext(limit: Int = 8) -> [ReadSuggestion] {
+        var out: [ReadSuggestion] = []
+        func add(_ book: Book, _ reason: String) {
+            guard out.count < limit, !out.contains(where: { $0.book.id == book.id }) else { return }
+            out.append(ReadSuggestion(book: book, reason: reason))
+        }
+        let owned = self.owned
+        let done = owned.filter { $0.status == .finished && $0.series != nil }
+            .sorted { ($0.lastOpened ?? $0.changed) > ($1.lastOpened ?? $1.changed) }
+        for book in done {
+            if let next = nextInSeries(after: book), let have = next.owned, have.status == .unread {
+                add(have, "Next in \(book.series ?? "the series"), after “\(book.title)”")
+            }
+        }
+        let unread = owned.filter { $0.status == .unread && $0.purchased != nil }
+            .sorted { ($0.purchased ?? .distantPast) > ($1.purchased ?? .distantPast) }
+        if let newest = unread.first { add(newest, "Your newest book") }
+        let month = DateFormatter()
+        month.locale = Locale(identifier: "en_GB")
+        month.dateFormat = "MMMM yyyy"
+        for book in unread.reversed() {
+            guard let day = book.purchased else { continue }
+            add(book, "Waiting since \(month.string(from: day))")
+        }
+        return out
+    }
+
+    // MARK: Stars, note, gave up, covers, series knowledge
+
+    public mutating func setRating(_ stars: Int?, of id: String, now: Date = Date()) {
+        guard let i = books.firstIndex(where: { $0.id == id }) else { return }
+        books[i].rating = stars.map { min(max($0, 1), 5) }
+        books[i].changed = now.wholeSeconds
+    }
+
+    public mutating func setNote(_ text: String, of id: String, now: Date = Date()) {
+        guard let i = books.firstIndex(where: { $0.id == id }) else { return }
+        let line = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        books[i].note = line.isEmpty ? nil : line
+        books[i].changed = now.wholeSeconds
+    }
+
+    /// Gave up: a started book the owner will not finish. It leaves "Set aside" and "Reading now".
+    public mutating func setGaveUp(_ gaveUp: Bool, of id: String, now: Date = Date()) {
+        guard let i = books.firstIndex(where: { $0.id == id }) else { return }
+        books[i].gaveUp = gaveUp
+        if gaveUp { books[i].status = .reading }
+        books[i].statusByHand = true
+        books[i].changed = now.wholeSeconds
+    }
+
+    /// A cover picture found for a book that had none.
+    public mutating func setCover(_ address: String, of id: String, now: Date = Date()) {
+        guard let i = books.firstIndex(where: { $0.id == id }), books[i].coverURL == nil, !address.isEmpty else { return }
+        books[i].coverURL = address
+        books[i].changed = now.wholeSeconds
+    }
+
+    public func seriesInfo(for name: String) -> SeriesInfo? {
+        series[BookMatch.plain(name.trimmingCharacters(in: .whitespaces))]
+    }
+
+    public mutating func setSeries(_ info: SeriesInfo, for name: String) {
+        series[BookMatch.plain(name.trimmingCharacters(in: .whitespaces))] = info
+    }
+
+    /// The series on the shelf (2 or more books) with their names as written, for looking them up.
+    public func seriesNames() -> [(name: String, author: String, title: String)] {
+        var seen: [String: (String, String, String, Int)] = [:]
+        for book in owned {
+            guard let name = book.series?.trimmingCharacters(in: .whitespaces), !name.isEmpty else { continue }
+            let key = BookMatch.plain(name)
+            seen[key] = (name, seen[key]?.1 ?? book.author, seen[key]?.2 ?? book.title, (seen[key]?.3 ?? 0) + 1)
+        }
+        return seen.values.filter { $0.3 >= 2 }.map { (name: $0.0, author: $0.1, title: $0.2) }.sorted { $0.name < $1.name }
+    }
+
+    /// Every shown book in which each typed word is found: in the title, the author, the series or the owner's note.
     public func find(_ query: String) -> [Book] {
         let words = BookMatch.plain(query).split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
         guard !words.isEmpty else { return [] }
         return shown.filter { book in
-            let hay = BookMatch.plain([book.title, book.author, book.series ?? ""].joined(separator: " "))
+            let hay = BookMatch.plain([book.title, book.author, book.series ?? "", book.note ?? ""].joined(separator: " "))
             return words.allSatisfy { hay.contains($0) }
         }
         .sorted { ($0.wish ? 1 : 0, BookMatch.titleKey($0.title)) < ($1.wish ? 1 : 0, BookMatch.titleKey($1.title)) }
+    }
+}
+
+/// The book after this one in its series.
+public struct SeriesNext: Equatable, Sendable {
+    public var number: Int
+    public var title: String?
+    /// The book itself when it is on the shelf.
+    public var owned: Book?
+}
+
+/// One answer to "What next?".
+public struct ReadSuggestion: Identifiable, Equatable, Sendable {
+    public var book: Book
+    public var reason: String
+    public var id: String { book.id }
+}
+
+/// How the books of one shelf are narrowed down and ordered on its page.
+public struct ShelfFilter: Equatable, Sendable {
+    public enum Kind: String, CaseIterable, Sendable { case all, read, listen }
+    public enum Order: String, CaseIterable, Sendable { case shelf, title, author, newest }
+    public var store: BookStore?
+    public var kind: Kind
+    public var order: Order
+
+    public init(store: BookStore? = nil, kind: Kind = .all, order: Order = .shelf) {
+        self.store = store; self.kind = kind; self.order = order
+    }
+
+    public var isPlain: Bool { store == nil && kind == .all && order == .shelf }
+
+    public func apply(to books: [Book]) -> [Book] {
+        var out = books
+        if let store { out = out.filter { $0.copies.contains { $0.store == store } } }
+        switch kind {
+        case .all: break
+        case .read: out = out.filter { $0.copies.isEmpty || $0.copies.contains { !$0.isAudio } }
+        case .listen: out = out.filter(\.isAudio)
+        }
+        switch order {
+        case .shelf: break
+        case .title: out.sort { BookMatch.titleKey($0.title) < BookMatch.titleKey($1.title) }
+        case .author: out.sort { (BookMatch.authorKey($0.author), BookMatch.titleKey($0.title)) < (BookMatch.authorKey($1.author), BookMatch.titleKey($1.title)) }
+        case .newest: out.sort { ($0.purchased ?? .distantPast) > ($1.purchased ?? .distantPast) }
+        }
+        return out
     }
 }
 

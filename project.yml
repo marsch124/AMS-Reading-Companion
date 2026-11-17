@@ -13,7 +13,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
     # The version lives here only; the Info.plist reads it from these two.
-    MARKETING_VERSION: "0.2"
+    MARKETING_VERSION: "0.3"
     CURRENT_PROJECT_VERSION: "1"
 packages:
   # The rules: the shelf, importers, search. No screen in it.
@@ -22,7 +22,7 @@ packages:
   # The shared AMS icon hub, pinned to one commit so a hub change never arrives by surprise.
   AMSIcons:
     url: https://github.com/marsch124/AMS-Icons
-    revision: 9ddf8ede7b72ed825e96f89bfdda55c6ddebcb11
+    revision: 052358dc28fec09b3aa0cf175b679b4123c79dac
 targets:
   AMSReadingCompanion:
     type: application
@@ -30,9 +30,14 @@ targets:
     sources:
       - path: App/Sources
       - path: App/Resources/Assets.xcassets
+      # The small shelf list the Share extension reads: the app writes it with the same code.
+      - path: ShareExtension/ShareStore.swift
     dependencies:
       - package: ReadingCore
       - package: AMSIcons
+      # The Share check ("do I own this?") on iPhone and iPad only.
+      - target: AMSReadingShare
+        platformFilter: iOS
     entitlements:
       path: App/Config/AMSReadingCompanion.entitlements
       properties:
@@ -40,6 +45,8 @@ targets:
         com.apple.developer.ubiquity-container-identifiers: [iCloud.com.schabbauer.AMSReadingCompanion]
         com.apple.developer.icloud-services: [CloudDocuments]
         com.apple.security.app-sandbox: true
+        # Shared with the Share extension: the small shelf list and the wishes made from it.
+        com.apple.security.application-groups: [group.com.schabbauer.AMSReadingCompanion]
         com.apple.security.network.client: true
         com.apple.security.files.user-selected.read-write: true
         # Mac only in effect: read-only look at the Apple Books, Kindle and Kobo libraries.
@@ -75,6 +82,7 @@ targets:
         # A Mac category that exists (Food & Drink once stopped every Mac install from TestFlight).
         LSApplicationCategoryType: public.app-category.utilities
         ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: The camera reads the barcode on a book so the app can tell you if you already own it.
         CFBundleURLTypes:
           - CFBundleURLName: com.schabbauer.AMSReadingCompanion
             CFBundleURLSchemes: [amsreading]
@@ -90,6 +98,31 @@ targets:
           UIColorName: ""
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+  AMSReadingShare:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ShareExtension
+        excludes:
+          - Info.plist
+          - ShareExtension.entitlements
+          - project-snippet.yml
+    dependencies:
+      - package: ReadingCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.schabbauer.AMSReadingCompanion.Share
+        DEVELOPMENT_TEAM: D24ENP83QQ
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ShareExtension/ShareExtension.entitlements
+        # MARKETING_VERSION / CURRENT_PROJECT_VERSION come from the project-level settings
+        # (must equal the app's, or Apple rejects the upload).
   AMSReadingCompanionUITests:
     type: bundle.ui-testing
     supportedDestinations: [iOS, macOS]

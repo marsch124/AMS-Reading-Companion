@@ -45,6 +45,8 @@
 		<string>ibooks</string>
 		<string>kobo</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>The camera reads the barcode on a book so the app can tell you if you already own it.</string>
 	<key>NSUbiquitousContainers</key>
 	<dict>
 		<key>iCloud.com.schabbauer.AMSReadingCompanion</key>

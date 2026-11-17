@@ -12,11 +12,12 @@ extension LibraryData {
                      purchased: day(bought), source: source)
         }
         func book(_ title: String, _ author: String, _ copies: [BookCopy], status: ReadStatus = .unread,
-                  series: String? = nil, number: Double? = nil, progress: Double? = nil, opened: Int? = nil) -> Book {
+                  series: String? = nil, number: Double? = nil, progress: Double? = nil, opened: Int? = nil,
+                  rating: Int? = nil, note: String? = nil, gaveUp: Bool = false) -> Book {
             let added = copies.compactMap(\.purchased).min() ?? day(0)
             return Book(id: copies[0].id, title: title, author: author, series: series, seriesNumber: number,
                         copies: copies, status: status, progress: progress, lastOpened: opened.map(day),
-                        added: added, changed: added)
+                        added: added, changed: added, rating: rating, note: note, gaveUp: gaveUp)
         }
         func wish(_ title: String, _ author: String, _ n: Int) -> Book {
             Book(id: "wish:sample-\(n)", title: title, author: author, wish: true, added: day(300 + n), changed: day(300 + n))
@@ -30,6 +31,13 @@ extension LibraryData {
                  status: .reading, progress: 0.42, opened: 310),
             book("A Map of Small Hours", "Joren Ashcombe", [copy(.kindle, "B0SAMPLE01", bought: 190, source: .kindle)],
                  status: .reading, progress: 0.15, opened: 305),
+            // Started, then left alone for months (set aside), and one given up
+            book("The Quiet Orchard Year", "Berit Salmon", [copy(.kobo, "k-orchard", bought: 150, source: .kobo)],
+                 status: .reading, progress: 0.3, opened: 100),
+            book("Letters from Low Tide", "Odell Marchetti", [copy(.kindle, "B0SAMPLE03", bought: 170, source: .kindle)],
+                 status: .reading, progress: 0.55, opened: 60),
+            book("The Copper Almanac", "Vesna Hallgren", [copy(.kobo, "k-almanac", bought: 140, source: .kobo)],
+                 status: .reading, progress: 0.12, opened: 90, gaveUp: true),
             // Unread, a series with a gap (books 1, 2 and 4)
             book("Ember Road", "Teodor Wrenfield", [copy(.kobo, "k-ember", bought: 250, source: .kobo)],
                  series: lantern, number: 1),
@@ -38,8 +46,9 @@ extension LibraryData {
             book("Glass Tide", "Teodor Wrenfield", [copy(.kobo, "k-glass", bought: 290, source: .kobo)],
                  series: lantern, number: 4),
             // A second series of two
+            // (book 1 is finished and book 2 not started: "What next?" offers book 2 first)
             book("Harrow Station", "Ilse Quennell", [copy(.apple, "a-harrow1", bought: 240, source: .apple)],
-                 series: harrow, number: 1),
+                 status: .finished, series: harrow, number: 1, opened: 250),
             book("Beyond Harrow", "Ilse Quennell", [copy(.apple, "a-harrow2", bought: 270, source: .apple)],
                  series: harrow, number: 2),
             // One book owned twice: Kobo and Kindle, both ebooks
@@ -53,7 +62,8 @@ extension LibraryData {
                  [copy(.own, "file-recipes", lockFree: true, file: "/Sample/Recipes for a Slow Week.epub", bought: 300, source: .file)]),
             book("Field Notes on Tidewater Birds", "Anselm Rook",
                  [copy(.own, "file-birds", kind: .pdf, lockFree: true, file: "/Sample/Field Notes on Tidewater Birds.pdf", bought: 120, source: .file)],
-                 status: .finished, opened: 140),
+                 status: .finished, opened: 140, rating: 5,
+                 note: "Read it on the ferry. The tern chapter is the best."),
             book("A Short Manual of Knots", "Petra Oyelaran",
                  [copy(.own, "file-knots", kind: .pdf, lockFree: true, file: "/Sample/A Short Manual of Knots.pdf", bought: 100, source: .file)],
                  status: .finished, opened: 130),
@@ -61,7 +71,7 @@ extension LibraryData {
             book("Night Ferry to Sundmark", "Lowen Takeda", [copy(.apple, "a-ferry-audio", kind: .audiobook, bought: 150, source: .apple)],
                  status: .finished, opened: 200),
             book("The Whispering Dunes", "Maren Oduya", [copy(.apple, "a-dunes-audio", kind: .audiobook, bought: 160, source: .apple)],
-                 status: .finished, opened: 220),
+                 status: .finished, opened: 220, rating: 4, note: "Slow start, worth it."),
             // Wishes
             wish("The Clockmaker's Weather", "Yara Pellegrin", 1),
             wish("Lanterns Under Ice", "Teodor Wrenfield", 2),
@@ -72,6 +82,15 @@ extension LibraryData {
             "kobo": ImportNote(date: day(310), count: 7),
             "kindle": ImportNote(date: day(305), count: 3),
         ]
-        return LibraryData(books: books, imports: imports)
+        var data = LibraryData(books: books, imports: imports)
+        // What a catalogue said about the Lantern Cycle: five books, all named.
+        data.setSeries(SeriesInfo(total: 5, volumes: [
+            SeriesVolume(number: 1, title: "Ember Road"),
+            SeriesVolume(number: 2, title: "Ash Harbour"),
+            SeriesVolume(number: 3, title: "The Salt Lamp"),
+            SeriesVolume(number: 4, title: "Glass Tide"),
+            SeriesVolume(number: 5, title: "Lantern Rising"),
+        ], checked: day(310)), for: lantern)
+        return data
     }
 }

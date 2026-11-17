@@ -30,7 +30,10 @@ struct ReadingApp: App {
             .environmentObject(model)
             .environmentObject(covers)
             .tint(Theme.text("purple"))
-            .onAppear { covers.off = model.sample }
+            .onAppear {
+                covers.off = model.sample
+                covers.keep = { id, address in model.setCover(address, of: id) }
+            }
             .onChange(of: phase) { _, now in
                 if now == .active { model.cameForward() } else { model.saveNow() }
             }
@@ -50,6 +53,7 @@ final class ReadingModel: ObservableObject {
     @Published var settingsShown = false
     @Published var searchShown = false
     @Published var addShown = false
+    @Published var scanShown = false
     /// The Mac only: what the last read of each store's list said when it gave no books.
     @Published var storeTrouble: [String: String] = [:]
     @Published var readingLists = false
@@ -90,6 +94,7 @@ final class ReadingModel: ObservableObject {
         settingsShown = args.contains("-settings")
         searchShown = args.contains("-search")
         addShown = args.contains("-add")
+        scanShown = args.contains("-scan")
         // `-show Brass` starts on the page of the first book whose title begins with that word.
         // (By title, not by id: the Mac takes an argument with a colon in it for a file to open and shows no window.)
         if let i = args.firstIndex(of: "-show"), i + 1 < args.count {
@@ -116,6 +121,9 @@ final class ReadingModel: ObservableObject {
             await MainActor.run {
                 self.cloudOn = cloud
                 if let loaded { self.data = LibraryData.merged(loaded, self.data) }
+                self.takeSharedWishes()
+                self.shareShelf()
+                self.lookUpSeries()
                 if self.isMac, Date().timeIntervalSince(self.lastRead) > 60 { self.readLists() }
             }
         }
@@ -125,7 +133,10 @@ final class ReadingModel: ObservableObject {
         guard !readOnly else { return }
         let before = data
         edit(&data)
-        guard data != before, !sample else { return }
+        guard data != before else { return }
+        // What this version writes may hold things an older version would lose by saving.
+        if data.format < LibraryData.currentFormat { data.format = LibraryData.currentFormat }
+        guard !sample else { return }
         unsaved = true
         saveTask?.cancel()
         saveTask = Task { [store] in
@@ -135,6 +146,45 @@ final class ReadingModel: ObservableObject {
             self.unsaved = false
             let written = await Task.detached { store.save(snapshot) }.value
             self.data = LibraryData.merged(self.data, written)
+            self.shareShelf()
+        }
+    }
+
+    // MARK: The Share check (iPhone and iPad)
+
+    /// Gives the Share extension a small list of the shelf, and takes in the wishes made from it.
+    private func shareShelf() {
+        #if os(iOS)
+        guard !sample else { return }
+        let entries = data.shown.map { ShelfEntry(title: $0.title, author: $0.author, stores: $0.stores.map(\.name), wish: $0.wish) }
+        Task.detached(priority: .utility) { ShareFiles.writeIndex(entries) }
+        #endif
+    }
+
+    private func takeSharedWishes() {
+        #if os(iOS)
+        guard !sample, !readOnly else { return }
+        for wish in ShareFiles.takeWishes() { add(title: wish.title, author: wish.author, store: nil) }
+        #endif
+    }
+
+    // MARK: What a catalogue knows about the series
+
+    private var seriesTask: Task<Void, Never>?
+
+    /// Asks a public catalogue how long each series on the shelf is. Once per series, again after 60 days.
+    func lookUpSeries() {
+        guard !sample, !readOnly, seriesTask == nil else { return }
+        let stale = Date().addingTimeInterval(-60 * 86_400)
+        let wanted = data.seriesNames().filter { (data.seriesInfo(for: $0.name)?.checked ?? .distantPast) < stale }.prefix(40)
+        guard !wanted.isEmpty else { return }
+        seriesTask = Task {
+            for entry in wanted {
+                let found = await SeriesLookup.find(series: entry.name, author: entry.author, knownTitle: entry.title)
+                self.change { $0.setSeries(SeriesInfo(total: found?.total, volumes: found?.volumes ?? []), for: entry.name) }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+            self.seriesTask = nil
         }
     }
 
@@ -197,13 +247,31 @@ final class ReadingModel: ObservableObject {
         }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        guard let bytes = try? Data(contentsOf: url) else {
-            fileNote = "That file could not be read."
-            return
+        var books: [ImportedBook]
+        var more = ""
+        if url.pathExtension.lowercased() == "pdf" {
+            // The page "Manage Your Content and Devices" at Amazon, saved as a PDF.
+            guard let text = PDFText.text(of: url) else {
+                fileNote = "That PDF could not be read."
+                return
+            }
+            guard KindlePDFText.looksRight(text) else {
+                fileNote = "That PDF is not Amazon's book list. Save the page “Manage Your Content and Devices” (Books) as a PDF."
+                return
+            }
+            books = KindlePDFText.parse(text)
+            if let counts = KindlePDFText.counts(text), counts.total > counts.shown {
+                more = " Amazon shows \(counts.shown) of your \(counts.total) books per page: save its next page as a PDF too."
+            }
+        } else {
+            guard let bytes = try? Data(contentsOf: url) else {
+                fileNote = "That file could not be read."
+                return
+            }
+            books = KindleListFile.parse(bytes)
         }
-        let books = KindleListFile.parse(bytes)
         guard !books.isEmpty else {
-            fileNote = "No books found in that file. It needs a title, an author and Amazon's book number per book."
+            fileNote = "No books found in that file. It can be Amazon's book list saved as a PDF, or a list with a title and an author per book."
             return
         }
         var summary = ImportSummary()
@@ -212,7 +280,7 @@ final class ReadingModel: ObservableObject {
             let shown = data.owned.filter { $0.copies.contains { $0.store == .kindle } }.count
             data.imports["kindle"] = ImportNote(date: Date(), count: shown)
         }
-        fileNote = "\(books.count) Kindle books in the file: \(summary.added) new on the shelf, \(books.count - summary.added) were already there."
+        fileNote = "\(books.count) Kindle books in the file: \(summary.added) new on the shelf, \(books.count - summary.added) were already there." + more
     }
 
     // MARK: What the owner does
@@ -230,6 +298,22 @@ final class ReadingModel: ObservableObject {
 
     func remove(_ id: String) {
         change { $0.remove(id) }
+    }
+
+    func setRating(_ stars: Int?, of id: String) {
+        change { $0.setRating(stars, of: id) }
+    }
+
+    func setNote(_ text: String, of id: String) {
+        change { $0.setNote(text, of: id) }
+    }
+
+    func setGaveUp(_ gaveUp: Bool, of id: String) {
+        change { $0.setGaveUp(gaveUp, of: id) }
+    }
+
+    func setCover(_ address: String, of id: String) {
+        change { $0.setCover(address, of: id) }
     }
 }
 

@@ -1,0 +1,41 @@
+# Paste under `targets:` in project.yml (indent as the other targets).
+#
+# HOW THE MAIN TARGET EMBEDS IT (iOS only). AMS-PARA does it with one line in the app's dependencies:
+#     - target: ParagonShare            # ParagonShare has supportedDestinations: [iOS, macOS]
+# Here the extension is iOS-only while AMSReadingCompanion is [iOS, macOS], so add to ITS dependencies:
+#     - target: AMSReadingShare
+#       platformFilter: iOS
+#       # (XcodeGen 2.38+; older versions: `platforms: [iOS]`.)
+# XcodeGen embeds an app-extension dependency in PlugIns automatically.
+# UNSURE: (1) platformFilter on a target dependency of a multi-destination target — if the Mac build
+# still tries to embed it, make the target `supportedDestinations: [iOS]` instead of `platform: iOS`
+# and keep the filter. (2) Also compile ShareStore.swift into the app so the app writes the index and
+# collects wishes: add `- path: ShareExtension/ShareStore.swift` to the main target's sources (it is
+# in the extension's sources too; it has no UIKit, so it builds on macOS as well). (3) The main
+# target's entitlements need com.apple.security.application-groups: [group.com.schabbauer.AMSReadingCompanion]
+# (on macOS an app group needs the Team ID prefix — iOS-only use is simplest).
+  AMSReadingShare:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ShareExtension
+        excludes:
+          - Info.plist
+          - ShareExtension.entitlements
+          - project-snippet.yml
+    dependencies:
+      - package: ReadingCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.schabbauer.AMSReadingCompanion.Share
+        DEVELOPMENT_TEAM: D24ENP83QQ
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ShareExtension/ShareExtension.entitlements
+        # MARKETING_VERSION / CURRENT_PROJECT_VERSION come from the project-level settings
+        # (must equal the app's, or Apple rejects the upload).

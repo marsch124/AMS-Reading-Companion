@@ -17,6 +17,8 @@ enum Theme {
         "amber": ((0.70, 0.45, 0.02), (0.96, 0.75, 0.30)),
         "blue": ((0.14, 0.40, 0.84), (0.52, 0.72, 1.00)),
         "grey": ((0.40, 0.43, 0.48), (0.66, 0.69, 0.74)),
+        "pink": ((0.74, 0.22, 0.47), (0.98, 0.58, 0.76)),
+        "brown": ((0.55, 0.37, 0.20), (0.85, 0.68, 0.48)),
     ]
 
     /// For words: headings and links.
@@ -181,7 +183,10 @@ final class Covers: ObservableObject {
     @Published private var found: [String: String]
     private var asked = Set<String>()
     private let key = "coverAddresses"
+    private let triedKey = "coverTriedByTitle"
     var off = false
+    /// Where a cover found by title is kept: on the book itself, so every device gets it.
+    var keep: ((_ bookID: String, _ address: String) -> Void)?
 
     init() {
         found = (UserDefaults.standard.dictionary(forKey: key) as? [String: String]) ?? [:]
@@ -199,7 +204,12 @@ final class Covers: ObservableObject {
     }
 
     func lookUp(_ book: Book) async {
-        guard !off, book.coverURL == nil, let id = appleNumber(of: book), found[id] == nil, !asked.contains(id) else { return }
+        guard !off, book.coverURL == nil else { return }
+        guard let id = appleNumber(of: book) else {
+            await lookUpByTitle(book)
+            return
+        }
+        guard found[id] == nil, !asked.contains(id) else { return }
         asked.insert(id)
         guard let url = URL(string: "https://itunes.apple.com/lookup?id=\(id)&country=se"),
               let (data, _) = try? await URLSession.shared.data(from: url),
@@ -208,5 +218,45 @@ final class Covers: ObservableObject {
         let small = results.first?["artworkUrl100"] as? String ?? ""
         found[id] = small.replacingOccurrences(of: "100x100", with: "400x400")
         UserDefaults.standard.set(found, forKey: key)
+    }
+
+    /// A book that came without a picture and without an Apple number (a Kindle book from a list, a book added by
+    /// hand, a wish): its cover is asked once from a public book catalogue, by title and author.
+    private func lookUpByTitle(_ book: Book) async {
+        guard !book.title.isEmpty, !asked.contains(book.id) else { return }
+        asked.insert(book.id)
+        var tried = Set(UserDefaults.standard.stringArray(forKey: triedKey) ?? [])
+        guard !tried.contains(book.id) else { return }
+        tried.insert(book.id)
+        UserDefaults.standard.set(Array(tried), forKey: triedKey)
+        if let address = await CoverLookup.find(title: book.title, author: book.author) {
+            keep?(book.id, address)
+        }
+    }
+}
+
+/// The owner's stars for a book: five hand-drawn stars, the given ones filled. With `tap` they can be set.
+struct StarsView: View {
+    let rating: Int
+    var size: CGFloat = 18
+    var colour: String = "amber"
+    var tap: ((Int) -> Void)?
+
+    var body: some View {
+        HStack(spacing: size * 0.15) {
+            ForEach(1...5, id: \.self) { n in
+                let star = GridShape(d: AppMark.star.path)
+                ZStack {
+                    if n <= rating { star.fill(Theme.text(colour)) }
+                    star.stroke(Theme.text(colour), style: StrokeStyle(lineWidth: size / 24 * 1.9, lineCap: .round, lineJoin: .round))
+                }
+                .frame(width: size, height: size)
+                .contentShape(Rectangle())
+                .onTapGesture { tap?(n == rating ? n - 1 : n) }
+                .accessibilityLabel("\(n) star\(n == 1 ? "" : "s")")
+                .accessibilityIdentifier("star-\(n)")
+                .accessibilityAddTraits(tap == nil ? [] : .isButton)
+            }
+        }
     }
 }
