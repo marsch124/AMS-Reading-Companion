@@ -1,4 +1,4 @@
-# AMS Reading Companion — specification, version 0.1 (17 November 2026)
+# AMS Reading Companion — specification, version 0.2 (17 November 2026)
 
 Platforms: iPhone, iPad, Mac.
 
@@ -26,12 +26,16 @@ Platforms: iPhone, iPad, Mac.
 - NOT YET checked against the real Kobo list.
 
 ### 3.3 Kindle
-- The Kindle Mac app remembers only the books of its latest sync (16 on 17 Nov 2026), not the library.
+- The Kindle Mac app keeps only a small list from its latest sync, not the library. On 17 Nov 2026 it listed 16 entries: 1 bought book, 3 built-in dictionaries and 12 nameless entries (title only dashes). After the rule below, 1 remains: the bought book. (One dictionary appears twice in the list, once with and once without a purchase date; the reader takes the first, so it is left out too.)
+- A Kindle entry is treated as built-in and left out when its purchase date is empty or its title has no letter or digit; personal documents (type PDOC) are exempt.
+- Settings counts the books on the shelf that came from Kindle, not the size of the Kindle library.
+- Amazon's website cannot be read by a helper; the full Kindle list comes in through Import Kindle list or Add a book.
 - Three ways in: (1) new purchases from the Kindle Mac app after it has synced; (2) a one-time list file of the whole library, Settings › Import Kindle list (`import-kindle-file`; CSV or JSON, with title, author and Amazon's book number per book); (3) by hand with Add a book.
 
 ### 3.4 Removal rules
 - Apple Books and Kobo lists are the truth: a book that leaves a list leaves the shelf at the next read.
 - An empty list (for example signed out) removes nothing.
+- An item a reader marks as sample/built-in is never added, and a copy with the same store id already on the shelf from that same reader is removed (the book goes with it when that was its only copy and it is not a wish).
 - Kindle books are never removed automatically.
 
 ## 4. One book, several stores
@@ -110,3 +114,7 @@ Platforms: iPhone, iPad, Mac.
 - Total size of a series.
 - Sending from iPhone.
 - Lock-free marks for store books.
+
+## 17. Version history
+- 0.1 (17 Nov 2026): first version.
+- 0.2 (17 Nov 2026): fix. Built-in Kindle entries left out (16 entries became 2); samples and built-in items marked later leave the shelf; honest Kindle count in Settings.

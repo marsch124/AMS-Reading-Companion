@@ -40,11 +40,11 @@ enum Guide {
             "This part has not yet been checked against your real Kobo list.",
         ]),
         Part(title: "Kindle", text: [
-            "The Kindle app on the Mac only remembers the books of its latest sync, not your whole library. So Kindle books come in three ways.",
+            "The Kindle app on the Mac keeps only a small list from its latest sync, not your whole library. Built-in dictionaries and entries without a purchase day are left out. On 17 November 2026 that left 1 book: the one you bought. So Kindle books come in three ways.",
             "One: new purchases are picked up from the Kindle app on the Mac after it has synced.",
             "Two: a one-time list of your whole Kindle library. Take it in under Settings › Import Kindle list. It can be a CSV or JSON file with title, author and Amazon's book number for each book.",
             "Three: by hand with Add a book.",
-            "Kindle books are never removed by themselves, because the Mac's Kindle list is never complete. You can remove one yourself on its page.",
+            "Kindle books are never removed by themselves, because the Mac's Kindle list is never complete. The one exception: if a store's list later marks a book on your shelf as a free sample or a built-in item, it leaves the shelf at the next read. You can also remove a book yourself on its page.",
         ]),
         Part(title: "One book, several stores", text: [
             "The same title and author in two stores is one book with two store marks.",
@@ -109,6 +109,12 @@ enum Guide {
     ]
 
     static let news: [Release] = [
+        Release(version: "0.2", date: "17 November 2026", items: [
+            "Fixed: the Kindle list showed things that are not your books. Before: 16 Kindle “books” on the shelf. What they really were: 1 book you bought, 3 dictionaries that come built into Kindle, and 12 nameless entries whose title was only a row of dashes (Kindle's built-in dictionaries for other languages). Now: built-in entries are left out, meaning anything in Kindle's list without a purchase day and anything whose title has no letters or numbers. On your Mac that leaves 1 Kindle book on the shelf (were 16): the one you bought.",
+            "New rule: when a store's list later marks a book on your shelf as a free sample or a built-in item, the book leaves the shelf by itself at the next read. Before, it stayed.",
+            "Changed: Settings now says honestly how the Kindle count comes about. It counts the books on the shelf that came from Kindle, not the size of your Kindle library.",
+            "Still open: the Kindle app on the Mac does not hold your whole Kindle library, and Amazon's website does not let a helper read it. Your full Kindle list comes in through Settings › Import Kindle list or Add a book.",
+        ]),
         Release(version: "0.1", date: "17 November 2026", items: [
             "New: the first version. One shelf for your books from Rakuten Kobo, Apple Books and Amazon Kindle, and for your own files (EPUB and PDF), on Mac, iPhone and iPad.",
             "New: the shelf holds bought ebooks, audiobooks and your own files. Free samples are left out.",

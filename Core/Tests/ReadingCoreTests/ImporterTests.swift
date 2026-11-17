@@ -63,6 +63,24 @@ final class ImporterTests: XCTestCase {
         XCTAssertEqual(books[2].store, .own); XCTAssertTrue(books[2].lockFree)
     }
 
+    /// Kindle's own dictionaries are not the owner's books: an entry without a purchase day, or with a title
+    /// of dashes, is marked like a sample; a personal document without a purchase day is not.
+    func testKindleLeavesOutBuiltInEntries() throws {
+        let dir = try tempFolder()
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("Cache"), withIntermediateDirectories: true)
+        let xml = """
+        <response><add_update_list>
+        <meta_data><ASIN>B000TEST11</ASIN><title>Bought Book</title><authors><author>Doe, Jane</author></authors><purchase_date>2021-09-14T14:00:49+0000</purchase_date><cde_contenttype>EBOK</cde_contenttype></meta_data>
+        <meta_data><ASIN>B000TEST12</ASIN><title>Built-in Wordbook</title><authors></authors><purchase_date></purchase_date><cde_contenttype>EBOK</cde_contenttype></meta_data>
+        <meta_data><ASIN>B000TEST13</ASIN><title>---------------</title><authors><author>----</author></authors><purchase_date>2022-01-09T10:00:00+0000</purchase_date><cde_contenttype>EBOK</cde_contenttype></meta_data>
+        <meta_data><ASIN>B000TEST14</ASIN><title>My Document</title><authors></authors><cde_contenttype>PDOC</cde_contenttype></meta_data>
+        </add_update_list></response>
+        """
+        try xml.write(to: dir.appendingPathComponent("Cache/KindleSyncMetadataCache.xml"), atomically: true, encoding: .utf8)
+        let books = try KindleImporter.read(folder: dir)
+        XCTAssertEqual(books.map(\.isSample), [false, true, true, false])
+    }
+
     func testKobo() throws {
         let dir = try tempFolder()
         let db = dir.appendingPathComponent("Kobo.sqlite")

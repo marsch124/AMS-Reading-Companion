@@ -32,6 +32,10 @@ public enum KindleImporter {
             let type = (m["cde_contenttype"] ?? "").uppercased()
             let personal = type == "PDOC"
             let mime = (m["content_type"] ?? "").lowercased()
+            // Kindle lists things that are not the owner's books: its built-in dictionaries, some with a row of
+            // dashes for a title. They carry no purchase day. They are marked like samples, so they stay off the shelf.
+            let builtIn = !personal && ((m["purchase_date"] ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+                                        || !title.contains(where: { $0.isLetter || $0.isNumber }))
             var path: String?
             if personal, let f = names.first(where: { $0.hasPrefix(asin + "_PDOC") && !$0.hasSuffix(".phl") && !$0.hasSuffix(".apnx") && !$0.hasSuffix(".mbpV2") }) {
                 path = content.appendingPathComponent(f).path
@@ -39,7 +43,7 @@ public enum KindleImporter {
             out.append(ImportedBook(
                 store: personal ? .own : .kindle, storeID: asin, title: title,
                 author: authors(m["authors"] ?? ""), kind: mime.contains("pdf") ? .pdf : .ebook,
-                isSample: type == "EBSP" || sampleASINs.contains(asin), lockFree: personal,
+                isSample: type == "EBSP" || sampleASINs.contains(asin) || builtIn, lockFree: personal,
                 filePath: path,
                 coverURL: personal ? nil : "https://m.media-amazon.com/images/P/\(asin).01._SCLZZZZZZZ_.jpg",
                 purchased: date(m["purchase_date"])))

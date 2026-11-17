@@ -232,4 +232,20 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(Set(shelves.first { $0.id == "reading" }?.books.map(\.id) ?? []), ["apple:1", "apple:3"])
         XCTAssertEqual(shelves.first { $0.id == "unread" }?.books.map(\.id), ["apple:2"])
     }
+
+    /// A book on the shelf that its store later marks as a sample or a built-in item leaves the shelf,
+    /// even when the list is not the store's whole list (Kindle).
+    func testWhatAStoreLaterMarksAsNotABookLeavesTheShelf() {
+        var data = LibraryData()
+        data.take([
+            ImportedBook(store: .kindle, storeID: "B0REAL", title: "Harbour Lights", author: "Una Vale"),
+            ImportedBook(store: .kindle, storeID: "B0DICT", title: "---------------", author: "----"),
+        ], source: .kindle, complete: false)
+        XCTAssertEqual(data.owned.count, 2)
+        data.take([
+            ImportedBook(store: .kindle, storeID: "B0REAL", title: "Harbour Lights", author: "Una Vale"),
+            ImportedBook(store: .kindle, storeID: "B0DICT", title: "---------------", author: "----", isSample: true),
+        ], source: .kindle, complete: false)
+        XCTAssertEqual(data.owned.map(\.id), ["kindle:B0REAL"])
+    }
 }

@@ -80,6 +80,20 @@ extension LibraryData {
         let now = now.wholeSeconds
         let items = imported.filter { !$0.isSample && !$0.title.trimmingCharacters(in: .whitespaces).isEmpty }
         summary.samples = imported.count - items.count
+
+        // What a reader marks as a sample or a built-in item never belongs on the shelf. If an earlier read put it
+        // there (before the reader knew better), it leaves now.
+        let notBooks = Set(imported.filter(\.isSample).map { "\($0.store.rawValue):\($0.storeID)" })
+        if !notBooks.isEmpty {
+            for i in books.indices where !books[i].removed {
+                let before = books[i].copies.count
+                books[i].copies.removeAll { $0.source == source && notBooks.contains($0.id) }
+                guard books[i].copies.count != before else { continue }
+                summary.removed += before - books[i].copies.count
+                books[i].changed = now
+                if books[i].copies.isEmpty && !books[i].wish { books[i].removed = true }
+            }
+        }
         guard !items.isEmpty else { return summary }
 
         var seen = Set<String>()
