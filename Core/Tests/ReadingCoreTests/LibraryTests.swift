@@ -248,4 +248,18 @@ final class LibraryTests: XCTestCase {
         ], source: .kindle, complete: false)
         XCTAssertEqual(data.owned.map(\.id), ["kindle:B0REAL"])
     }
+
+    /// A list file without book numbers, read after the store's own list brought the same title,
+    /// does not put a second copy of that store on the book.
+    func testSameTitleFromTheSameStoreAgainAddsNoSecondCopy() {
+        var data = LibraryData()
+        data.take([ImportedBook(store: .kindle, storeID: "B0REAL", title: "Harbour Lights", author: "Una Vale")],
+                  source: .kindle, complete: false)
+        data.take([ImportedBook(store: .kindle, storeID: "title-harbourlights", title: "Harbour Lights: A Novel", author: "Una Vale", finished: true),
+                   ImportedBook(store: .kindle, storeID: "title-saltroad", title: "Salt Road", author: "Per Lind")],
+                  source: .kindle, complete: false)
+        XCTAssertEqual(data.owned.count, 2)
+        XCTAssertEqual(data.book("kindle:B0REAL")?.copies.count, 1)
+        XCTAssertEqual(data.book("kindle:B0REAL")?.status, .finished)
+    }
 }

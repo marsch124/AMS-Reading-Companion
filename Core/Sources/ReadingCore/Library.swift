@@ -114,6 +114,14 @@ extension LibraryData {
                 !b.removed && BookMatch.same(title: b.title, author: b.author, title: item.title, author: item.author)
             }) {
                 // The same title from another store, a wish that is now owned, or a book first added by hand.
+                // But a title this store already brought (a list file without book numbers, read after the store's
+                // own list) is the same copy again: nothing is added.
+                if books[i].copies.contains(where: { $0.store == copy.store && $0.isAudio == copy.isAudio && $0.source != .hand }) {
+                    let before = books[i]
+                    fill(&books[i], from: item)
+                    if books[i] != before { books[i].changed = now }
+                    continue
+                }
                 books[i].copies.removeAll { $0.source == .hand && $0.store == copy.store && $0.isAudio == copy.isAudio }
                 books[i].copies.append(copy)
                 books[i].wish = false
