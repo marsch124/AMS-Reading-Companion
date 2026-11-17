@@ -296,7 +296,7 @@ struct ShelfAllView: View {
             }
             .accessibilityIdentifier("filter-store")
             Picker("Kind", selection: $filter.kind) {
-                Text("Read or listen").tag(ShelfFilter.Kind.all)
+                Text("All kinds").tag(ShelfFilter.Kind.all)
                 Text("To read").tag(ShelfFilter.Kind.read)
                 Text("To listen").tag(ShelfFilter.Kind.listen)
             }
@@ -312,6 +312,8 @@ struct ShelfAllView: View {
         }
         .pickerStyle(.menu)
         .labelsHidden()
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
         .tint(Theme.text(colour))
         .font(.subheadline)
     }

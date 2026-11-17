@@ -1,0 +1,893 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Reading Companion Tour</title>
+<style>
+/* Reading Companion Tour: chapter rail on the left, coach card + a pretend iPhone on the right. Same engine as the other AMS tours.
+   Based on AMS Reading Companion 0.3. Update this tour in the release that changes a taught screen. */
+:root {
+  --bg: #F7F4F8; --panel: #FFFFFF; --fg: #251C2B; --muted: #6E6477; --line: #E6DEEA;
+  --accent: #7A508A; --accent-soft: #F0E7F4; --good: #2F7D32; --good-soft: #E6F3E6; --warn: #A8431A;
+  --shadow: 0 18px 40px rgba(37,28,43,.2);
+  --purple:#7A508A; --red:#CA4A33; --green:#128559; --teal:#058087; --amber:#B37305; --blue:#2466D6; --grey:#666E7A; --pink:#BD3878; --brown:#8C5E33;
+  --k-kobo:#D95A30; --k-kindle:#2978DE; --k-apple:#78787F; --k-own:#058087;
+  --pbg:#FFFFFF; --pgrp:#F2F2F7; --pcell:#FFFFFF; --pink-t:#1C1C1E; --pmuted:#6C6C70; --pline:#E0E0E5; --pfield:rgba(120,120,128,.14); --pplate:#F4F5F7;
+  --f-display: "Avenir Next", "Helvetica Neue", system-ui, sans-serif;
+  --f-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --f-phone: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#171219; --panel:#221B26; --fg:#F3ECF6; --muted:#B4A8BC; --line:#3A2F40;
+  --accent:#CCA8E0; --accent-soft:#33273B; --good:#8FD18F; --good-soft:#1D3320; --warn:#F2A47F;
+  --shadow: 0 18px 40px rgba(0,0,0,.55);
+  --purple:#CCA8E0; --red:#FF9980; --green:#61D69E; --teal:#5CD1D6; --amber:#F5BF4D; --blue:#85B8FF; --grey:#A8B0BD; --pink:#FA94C2; --brown:#D9AD7A;
+  --k-kobo:#F58A5C; --k-kindle:#73B3FF; --k-apple:#A8A8B2; --k-own:#5CD1D6;
+  --pbg:#000000; --pgrp:#000000; --pcell:#1C1C1E; --pink-t:#F2F2F7; --pmuted:#9A9AA0; --pline:#333338; --pfield:rgba(120,120,128,.3); --pplate:#2B2C30;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg:#171219; --panel:#221B26; --fg:#F3ECF6; --muted:#B4A8BC; --line:#3A2F40;
+  --accent:#CCA8E0; --accent-soft:#33273B; --good:#8FD18F; --good-soft:#1D3320; --warn:#F2A47F;
+  --shadow: 0 18px 40px rgba(0,0,0,.55);
+  --purple:#CCA8E0; --red:#FF9980; --green:#61D69E; --teal:#5CD1D6; --amber:#F5BF4D; --blue:#85B8FF; --grey:#A8B0BD; --pink:#FA94C2; --brown:#D9AD7A;
+  --k-kobo:#F58A5C; --k-kindle:#73B3FF; --k-apple:#A8A8B2; --k-own:#5CD1D6;
+  --pbg:#000000; --pgrp:#000000; --pcell:#1C1C1E; --pink-t:#F2F2F7; --pmuted:#9A9AA0; --pline:#333338; --pfield:rgba(120,120,128,.3); --pplate:#2B2C30;
+  color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.45; margin: 0 }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; grid-template-columns: 230px minmax(0,1fr); gap: 22px; }
+svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none }
+svg.g { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none }
+
+/* Rail */
+.rail { display: flex; flex-direction: column; gap: 4px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; }
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.brand h1 { font-family: var(--f-display); font-size: 19px; line-height: 1.1; margin: 0; text-wrap: balance }
+.brand small { color: var(--muted); font-size: 12px }
+.logo { width: 40px; height: 40px; border-radius: 10px; background: var(--purple); color: #fff; display: grid; place-items: center; flex: none }
+.chap { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px; border: 0; background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.chap:hover { background: var(--accent-soft) }
+.chap:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.chap .n { color: var(--muted); font-size: 12px; margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap }
+.chap.cur { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
+.chap.done .n { color: var(--good) }
+.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 10px 2px 2px }
+.bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .4s }
+.railnote { color: var(--muted); font-size: 12px; margin: 4px 2px }
+
+/* Coach */
+.main { display: grid; grid-template-columns: minmax(0,1fr); gap: 14px; min-width: 0; align-content: start }
+.topnote { margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 13.5px }
+.coach { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px 16px; align-items: center; }
+.coach .eyebrow { grid-column: 1 / -1; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); font-weight: 600; display: flex; gap: 8px; align-items: center }
+.coach .eyebrow .kind { color: var(--muted); font-weight: 500 }
+.coach h2 { font-family: var(--f-display); font-size: 23px; line-height: 1.2; margin: 0; text-wrap: balance }
+.coach p { margin: 4px 0 0; color: var(--fg); max-width: 62ch }
+.coach .btns { display: flex; gap: 8px; align-items: center }
+.btn { font: inherit; font-weight: 600; border-radius: 9px; padding: 8px 16px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer }
+.btn.main-b { background: #7A508A; border-color: #7A508A; color: #fff }
+.btn.main-b:disabled { opacity: .45; cursor: default }
+.btn.ghost { border-color: transparent; color: var(--muted) }
+.answers { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px }
+.ans { font: inherit; padding: 8px 14px; border-radius: 9px; border: 1.5px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; text-align: left }
+.ans:hover { border-color: var(--accent) }
+.ans.right { border-color: var(--good); background: var(--good-soft); color: var(--good); font-weight: 600 }
+.ans.wrong { border-color: var(--warn); color: var(--warn); text-decoration: line-through }
+.feedback { grid-column: 1 / -1; font-weight: 600; color: var(--good); min-height: 1.4em; margin: 0 }
+.feedback.no { color: var(--warn) }
+
+/* Stage = pretend iPhone, 390 x 760, scaled to fit */
+.stagebox { position: relative; width: min(100%, 390px); aspect-ratio: 390 / 760; border-radius: 40px; overflow: hidden; box-shadow: 0 0 0 6px #1f1f23, var(--shadow); justify-self: center; background: var(--pbg) }
+.stage { position: absolute; left: 0; top: 0; width: 390px; height: 760px; transform-origin: 0 0; font-family: var(--f-phone); font-size: 15px; line-height: 1.3; color: var(--pink-t); background: var(--pbg); overflow: hidden; -webkit-user-select: none; user-select: none }
+.stage button { font: inherit; color: inherit }
+.stage input { font: inherit; color: var(--pink-t); -webkit-user-select: text; user-select: text }
+.sbar { position: absolute; left: 0; right: 0; top: 0; height: 44px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 30px 6px 34px; font-weight: 600; font-size: 15px; z-index: 40; pointer-events: none; background: var(--pbg) }
+.sbar .bat { width: 25px; height: 12px; border: 1.5px solid var(--pink-t); border-radius: 4px; position: relative; opacity: .8 }
+.sbar .bat::after { content: ""; position: absolute; left: 1.5px; top: 1.5px; bottom: 1.5px; width: 70%; background: var(--pink-t); border-radius: 2px }
+.scr { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 94px 0 40px; scrollbar-width: none }
+.scr::-webkit-scrollbar { display: none }
+.pnav { position: absolute; top: 44px; left: 0; right: 0; height: 44px; display: flex; align-items: center; padding: 0 10px; z-index: 35; background: var(--pbg) }
+.ptitle { position: absolute; left: 0; right: 0; text-align: center; font-weight: 600; font-size: 17px; pointer-events: none }
+.ptools { margin-left: auto; display: flex; gap: 0; z-index: 2 }
+.ibtn { border: 0; background: none; color: var(--purple); padding: 6px; border-radius: 10px; display: grid; place-items: center; cursor: pointer }
+.ibtn svg { width: 25px; height: 25px }
+.pback { border: 0; background: none; color: var(--purple); display: flex; align-items: center; font-size: 17px; cursor: pointer; padding: 6px 2px; z-index: 2; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.pback svg { width: 22px; height: 22px }
+
+/* Shelves */
+.shelf { margin: 0 0 12px }
+.shh { display: flex; align-items: baseline; gap: 6px; width: 100%; border: 0; background: none; padding: 0 12px 5px; text-align: left; cursor: pointer }
+.shh b { font-size: 17px; font-weight: 600 }
+.shh small { color: var(--pmuted); font-size: 13px }
+.shh svg { width: 14px; height: 14px; margin-left: auto; align-self: center }
+.shh:disabled { cursor: default }
+.hrow { display: flex; gap: 8px; overflow-x: auto; padding: 0 12px; scrollbar-width: none }
+.hrow::-webkit-scrollbar { display: none }
+.tile { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; flex: none }
+.cv { width: var(--w); height: calc(var(--w) * 1.5); border-radius: 4px; overflow: hidden; color: #fff; padding: calc(var(--w) * .08); display: flex; flex-direction: column; gap: 2px; box-shadow: inset 0 0 0 .5px rgba(128,128,128,.45); flex: none; text-align: left }
+.cv b { font-weight: 600; line-height: 1.12; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden }
+.cv i { font-style: normal; opacity: .85; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.marks { display: flex; gap: 3px; align-items: center; height: 13px; margin-top: 3px }
+.marks svg { width: 13px; height: 13px }
+.d8 { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none }
+.wnc { display: flex; gap: 10px; align-items: flex-start; margin: 0 12px 12px; padding: 10px; background: var(--pplate); border-radius: 10px }
+.wnc .go { display: flex; gap: 10px; align-items: flex-start; flex: 1; min-width: 0; border: 0; background: none; padding: 0; text-align: left; cursor: pointer }
+.wnc .t1 { font-size: 15px; font-weight: 700; color: var(--purple) }
+.wnc .t2 { font-size: 17px; font-weight: 600; line-height: 1.2 }
+.wnc .t3 { font-size: 13px; color: var(--pmuted); line-height: 1.25 }
+.lk { border: 0; background: none; color: var(--purple); font-weight: 600; font-size: 13px; cursor: pointer; padding: 2px }
+.pnote { margin: 0 12px 12px; padding: 10px; background: var(--pplate); border-radius: 10px; font-size: 15px }
+
+/* Pages */
+.pad { padding: 4px 18px 0 }
+.bhead { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px }
+.bhead h2 { margin: 0; font-size: 20px; line-height: 1.2; font-weight: 700; overflow-wrap: anywhere }
+.bhead .au { color: var(--pmuted) }
+.bhead .fn { font-size: 13px; color: var(--pmuted) }
+.flag { font-size: 13px; font-weight: 600 }
+.seg3 { display: flex; gap: 6px; margin-bottom: 14px }
+.seg3 button { flex: 1; border: 0; border-radius: 8px; padding: 7px 0; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--purple); background: rgba(122,80,138,.14) }
+.seg3 button.on { background: #7A508A; color: #fff }
+.lnk3 { font-size: 13px; font-weight: 600; color: var(--brown); margin-bottom: 14px; display: flex; gap: 10px; align-items: baseline }
+.lnk3 button { border: 0; background: none; color: var(--brown); font-weight: 600; font-size: 13px; cursor: pointer; padding: 0 }
+.lnk3 span { color: var(--pmuted); font-weight: 400 }
+.blk { margin-bottom: 14px }
+.blk h3 { margin: 0 0 5px; font-size: 17px; font-weight: 600 }
+.blk .sm { font-size: 13px; color: var(--pmuted) }
+.stars { display: flex; gap: 3px; margin: 2px 0 4px }
+.stars button { border: 0; background: none; padding: 0; display: grid; cursor: default }
+.stars svg { fill: none; stroke: var(--amber); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round }
+.stars svg.on { fill: var(--amber) }
+.edit { border: 0; background: none; color: var(--amber); font-weight: 600; font-size: 15px; cursor: pointer; padding: 0 }
+.hdl { display: flex; align-items: baseline; justify-content: space-between }
+.nrow { display: flex; gap: 8px; align-items: center; width: 100%; border: 0; background: none; text-align: left; padding: 0; cursor: pointer }
+.fbtn { border: 0; color: #fff; font-weight: 600; border-radius: 8px; padding: 6px 12px; font-size: 15px; cursor: pointer }
+.crow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px }
+.crow .sp { flex: 1 }
+.openb { display: inline-flex; align-items: center; gap: 5px; border: 0; background: #7A508A; color: #fff; font-weight: 600; font-size: 15px; border-radius: 16px; padding: 5px 12px; cursor: pointer }
+.openb svg { width: 18px; height: 18px }
+.alink { display: block; color: var(--blue); margin: 2px 0; cursor: pointer; border: 0; background: none; padding: 0; text-align: left; font-size: 17px }
+.rmv { border: 0; background: none; color: var(--red); font-size: 17px; cursor: pointer; padding: 0; margin-top: 6px }
+.big { font-size: 34px; font-weight: 700; margin: 0 0 8px; padding: 0 12px }
+.frow { display: flex; gap: 6px; padding: 0 12px; margin-bottom: 8px; position: relative }
+.fsel { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; color: var(--green); font-size: 15px; cursor: pointer; padding: 4px 2px }
+.fsel svg { width: 12px; height: 12px }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 10px; padding: 0 14px }
+.gcap { font-size: 12px; line-height: 1.2; width: 92px; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+
+/* Sheets */
+.dim { position: absolute; inset: 0; background: rgba(0,0,0,.35) }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; top: 34px; border-radius: 22px 22px 0 0; background: var(--pbg); overflow: hidden; box-shadow: 0 -8px 30px rgba(0,0,0,.3) }
+.sheet.grp { background: var(--pgrp) }
+.sheet .scr { padding-top: 58px }
+.snav { position: absolute; top: 0; left: 0; right: 0; height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: inherit; z-index: 5 }
+.snav .st { position: absolute; left: 0; right: 0; text-align: center; font-weight: 600; font-size: 17px; pointer-events: none }
+.hb { border: 0; background: none; font-weight: 600; font-size: 17px; cursor: pointer; padding: 6px 4px; border-radius: 8px; color: var(--purple); z-index: 2; display: flex; gap: 4px; align-items: center }
+.hb.fill { color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 16px }
+.hb svg { width: 18px; height: 18px }
+.cell { background: var(--pcell); border-radius: 10px; margin: 0 16px 16px; overflow: hidden }
+.cell > * + * { border-top: 1px solid var(--pline) }
+.fi { width: 100%; min-height: 44px; border: 0; background: none; padding: 0 14px; font-size: 17px; outline: none }
+.srow { display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-height: 44px; width: 100%; border: 0; background: none; text-align: left; font-size: 17px; cursor: pointer }
+.srow .sub { font-size: 13px; color: var(--pmuted); display: block }
+.srow .sp { flex: 1 }
+.ghd { margin: 0 32px 6px; font-weight: 700; font-size: 15px }
+.gft { margin: -6px 32px 16px; font-size: 13px; color: var(--pmuted) }
+.warnc { color: var(--red); font-size: 15px; padding: 10px 14px }
+.msg { color: var(--red); font-size: 13px; padding: 6px 14px }
+.sfield { display: flex; align-items: center; gap: 8px; background: var(--pplate); border-radius: 8px; padding: 0 10px; margin: 0 18px 10px }
+.sfield svg { width: 18px; height: 18px; color: var(--purple) }
+.sfield input { flex: 1; border: 0; background: none; outline: none; min-height: 38px; font-size: 17px }
+.xr { border: 0; background: none; color: var(--pmuted); display: grid; padding: 2px; cursor: pointer }
+.xr svg { width: 18px; height: 18px }
+.rres { display: flex; gap: 10px; align-items: center; width: 100%; border: 0; background: none; text-align: left; padding: 6px 18px; cursor: pointer }
+.rres b { display: block; font-size: 17px; line-height: 1.2 }
+.rres small { color: var(--pmuted); font-size: 13px }
+.menu { position: absolute; z-index: 200; background: var(--pcell); border: 1px solid var(--pline); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.3); min-width: 190px; overflow: hidden }
+.menu button { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; text-align: left; padding: 11px 14px; font-size: 16px; cursor: pointer }
+.menu button + button { border-top: 1px solid var(--pline) }
+.menu button .ck { width: 16px; height: 16px; flex: none }
+.dlg { position: absolute; inset: 0; z-index: 300; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; padding: 12px }
+.dlg .box { width: 100%; background: var(--pcell); border-radius: 14px; padding: 14px; text-align: center }
+.dlg .box p { margin: 0 0 10px; font-size: 14px; color: var(--pmuted) }
+.dlg .box button { display: block; width: 100%; border: 0; background: none; padding: 11px; font-size: 18px; cursor: pointer; border-top: 1px solid var(--pline) }
+.cam { height: 150px; border-radius: 12px; background: #1b1b1f; color: #bbb; display: grid; place-items: center; text-align: center; font-size: 13px; padding: 14px; margin-bottom: 10px }
+.cam svg { width: 56px; height: 36px; fill: none; stroke: #bbb; stroke-width: 1.9; stroke-linecap: round }
+.resbox { padding: 10px; background: var(--pplate); border-radius: 12px; margin-top: 10px }
+.resbox h4 { margin: 0 0 6px; font-size: 17px }
+.fullb { display: block; width: 100%; border: 0; color: #fff; font-weight: 600; font-size: 16px; padding: 9px; border-radius: 8px; cursor: pointer; margin-top: 8px }
+.toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); background: #3b2d44; color: #fff; font-weight: 600; font-size: 13px; padding: 7px 14px; border-radius: 18px; z-index: 400; animation: pop .3s; max-width: 340px; text-align: center }
+.sf { position: absolute; inset: 0; background: var(--pgrp) }
+.sfbar { position: absolute; top: 44px; left: 0; right: 0; height: 46px; display: grid; place-items: center; padding: 0 16px }
+.sfurl { background: var(--pfield); border-radius: 10px; padding: 6px 14px; font-size: 14px; color: var(--pmuted); width: 100% ; text-align: center }
+.sfpage { position: absolute; top: 96px; left: 0; right: 0; bottom: 64px; padding: 18px; overflow: hidden }
+.sfpage h2 { font-size: 22px; margin: 0 0 2px }
+.sfpage .ln { height: 9px; background: var(--pline); border-radius: 5px; margin: 8px 0 }
+.sftool { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; display: flex; align-items: center; justify-content: center; border-top: 1px solid var(--pline); background: var(--pbg) }
+.apps { display: flex; gap: 14px; padding: 10px 16px; overflow: hidden }
+.app { border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; width: 62px; cursor: pointer; color: var(--pmuted) }
+.app .tl { width: 54px; height: 54px; border-radius: 13px; background: var(--pplate); display: grid; place-items: center; color: var(--pmuted) }
+.app .tl svg { width: 26px; height: 26px }
+.app.me .tl { background: #7A508A; color: #fff }
+.app.me { color: var(--pink-t); font-weight: 600 }
+.card { padding: 14px 16px }
+.card h4 { margin: 8px 0 4px; font-size: 17px }
+.card .fi2 { width: 100%; min-height: 38px; border: 1px solid var(--pline); border-radius: 8px; background: var(--pcell); padding: 0 10px; font-size: 16px; margin: 3px 0 }
+
+/* Highlight: no position here (it would break absolutely placed boxes) */
+.target { z-index: 2; animation: ring 1.6s ease-in-out infinite; border-radius: 9px }
+@keyframes ring { 0%,100% { box-shadow: 0 0 0 2px #E6B53F, 0 0 0 6px rgba(230,181,63,.35) } 50% { box-shadow: 0 0 0 2px #E6B53F, 0 0 0 11px rgba(230,181,63,0) } }
+@keyframes pop { from { transform: translate(-50%, 8px); opacity: .3 } to { transform: translate(-50%, 0); opacity: 1 } }
+
+/* Finish */
+.finish { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px }
+.finish h3 { font-family: var(--f-display); margin: 0 0 8px; font-size: 19px }
+.finish label { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-top: 1px solid var(--line); cursor: pointer }
+.finish input { width: 18px; height: 18px; accent-color: #7A508A; margin-top: 2px; flex: none }
+
+@media (min-width: 1020px) {
+  .main { grid-template-columns: minmax(0,1fr) 402px; align-items: start }
+  .topnote, .finish { grid-column: 1 / -1 }
+  .coach { grid-column: 1; grid-template-columns: minmax(0,1fr); position: sticky; top: 16px }
+  .stagebox { grid-column: 2; grid-row: 2 }
+  .coach { grid-row: 2 }
+}
+@media (max-width: 820px) {
+  .wrap { grid-template-columns: minmax(0,1fr) }
+  .rail { position: static; flex-direction: row; flex-wrap: wrap; gap: 4px }
+  .brand { width: 100% }
+  .chap .n { display: none }
+  .railnote, .bar { width: 100% }
+  .coach { grid-template-columns: minmax(0,1fr) }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important } }
+</style>
+
+<div class="wrap">
+  <nav class="rail" id="rail" aria-label="Chapters"></nav>
+  <main class="main">
+    <p class="topnote">Practice copy with made-up books. Nothing changes on your devices.</p>
+    <section class="coach" id="coach" aria-live="polite"></section>
+    <div class="stagebox" id="stagebox"><div class="stage" id="stage"></div></div>
+    <section class="finish" id="finish" hidden></section>
+  </main>
+</div>
+
+<script>
+/* ---------- Icons: simple hand-drawn line shapes, 24-pt grid, stroke 1.9, round ends, no fill. ---------- */
+const ICON = {
+  shelf: 'M4 20h16 M5.5 20V8h4v12 M10.5 20V5h4v15 M15.5 20V9.5l3.5.9-1.5 9.6',
+  doc: 'M7 3.5h7l4 4v13H7Z M14 3.5v4h4 M9.5 12h6 M9.5 15.5h6',
+  tag: 'M4 12V5h7l9 9-7 7Z M8.2 8.4h.01',
+  compass: 'M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0 M15.2 8.8l-1.9 4.5-4.5 1.9 1.9-4.5Z',
+  moon: 'M19 14.5A8 8 0 1 1 9.5 5a6.5 6.5 0 0 0 9.5 9.5Z',
+  pen: 'M4 20l4-1 10-10-3-3L5 16Z M13.5 6.5l3 3',
+  phone: 'M8 3.5h8a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H8A1.5 1.5 0 0 1 6.5 19V5A1.5 1.5 0 0 1 8 3.5Z M11 17.8h2',
+  book: 'M4 5.5c3-1 5.5-.8 8 .8 2.5-1.6 5-1.8 8-.8V18c-3-1-5.5-.8-8 .8-2.5-1.6-5-1.8-8-.8Z M12 6.3V18.8',
+  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20 20l-4-4',
+  plus: 'M12 5v14M5 12h14',
+  gear: 'M12 3l7 4v8l-7 4-7-4V7Z M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z',
+  chevR: 'M9 6l6 6-6 6', chevL: 'M15 6l-6 6 6 6', updown: 'M8 9l4-4 4 4 M8 15l4 4 4-4',
+  check: 'M5 12.5l5 5 9-10.5', cross: 'M7 7l10 10M17 7 7 17',
+  lock: 'M6 11h12v9H6Z M9 11V8a3 3 0 0 1 5.6-1.5',
+  phones: 'M4.5 14v-2a7.5 7.5 0 0 1 15 0v2 M4.5 14h3v5h-3Z M16.5 14h3v5h-3Z',
+  star: 'M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.7-5.1-2.7-5.1 2.7 1-5.7-4.1-4 5.7-.8Z',
+  bookmark: 'M7 4h10v16l-5-4-5 4Z',
+  openApp: 'M10 6H6v12h12v-4 M13 5h6v6 M19 5l-8 8',
+  share: 'M12 15V4 M8 8l4-4 4 4 M5 12v7h14v-7',
+  msg: 'M5 6h14v9H10l-4 3.5V15H5Z',
+  mail: 'M4 7h16v10H4Z M4 7.5l8 6 8-6',
+  notes: 'M6 4h12v16H6Z M9 9h6 M9 12.5h6 M9 16h3',
+  bars: 'M4 8v8 M7 6v12 M10 9v6 M13 5v14 M16 8v8 M19 6v12',
+};
+const icon = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[n]}"/></svg>`;
+const ico = (n, px, extra = '', style = '') => `<svg class="g" width="${px}" height="${px}" viewBox="0 0 24 24" aria-hidden="true" style="${style}" ${extra}><path d="${ICON[n]}"/></svg>`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LQ = '\u201c', RQ = '\u201d', MID = '\u00b7', ELL = '\u2026';
+
+/* ---------- The pretend app: the 20 made-up books of the app's own sample shelf ---------- */
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const FULLMON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYD = n => new Date(Date.UTC(2026, 0, 1 + n));
+const fmtDay = n => { const d = DAYD(n); return d.getUTCDate() + ' ' + MON[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
+const monthYear = n => { const d = DAYD(n); return FULLMON[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
+const STORES = ['kobo', 'kindle', 'apple', 'own'];
+const SNAME = { kobo: 'Kobo', kindle: 'Kindle', apple: 'Apple Books', own: 'Own file' };
+const cp = (s, kind, bought, o) => Object.assign({ s, kind, bought, lf: false, src: s === 'own' ? 'file' : s }, o || {});
+const bk = (id, title, author, copies, o) => Object.assign({ id, title, author, series: null, num: null, copies, status: 'unread', byHand: false, wish: false, removed: false,
+  opened: null, added: copies.length ? Math.min(...copies.map(c => c.bought)) : 0, rating: null, note: null, gaveUp: false }, o || {});
+const wsh = (id, title, author, n) => bk(id, title, author, [], { wish: true, added: 300 + n });
+const mkData = () => ({
+  books: [
+    bk('salt', 'Salt and Signal', 'Mira Valdane', [cp('kobo', 'ebook', 210)], { status: 'reading', opened: 310 }),
+    bk('map', 'A Map of Small Hours', 'Joren Ashcombe', [cp('kindle', 'ebook', 190)], { status: 'reading', opened: 305 }),
+    bk('orchard', 'The Quiet Orchard Year', 'Berit Salmon', [cp('kobo', 'ebook', 150)], { status: 'reading', opened: 100 }),
+    bk('letters', 'Letters from Low Tide', 'Odell Marchetti', [cp('kindle', 'ebook', 170)], { status: 'reading', opened: 60 }),
+    bk('almanac', 'The Copper Almanac', 'Vesna Hallgren', [cp('kobo', 'ebook', 140)], { status: 'reading', opened: 90, gaveUp: true }),
+    bk('ember', 'Ember Road', 'Teodor Wrenfield', [cp('kobo', 'ebook', 250)], { series: 'The Lantern Cycle', num: 1 }),
+    bk('ash', 'Ash Harbour', 'Teodor Wrenfield', [cp('kobo', 'ebook', 262)], { series: 'The Lantern Cycle', num: 2 }),
+    bk('glass', 'Glass Tide', 'Teodor Wrenfield', [cp('kobo', 'ebook', 290)], { series: 'The Lantern Cycle', num: 4 }),
+    bk('harrow', 'Harrow Station', 'Ilse Quennell', [cp('apple', 'ebook', 240)], { status: 'finished', series: 'Harrow Station', num: 1, opened: 250 }),
+    bk('beyond', 'Beyond Harrow', 'Ilse Quennell', [cp('apple', 'ebook', 270)], { series: 'Harrow Station', num: 2 }),
+    bk('brass', 'Brass Meridian', 'Corin Faulkes', [cp('kobo', 'ebook', 280), cp('kindle', 'ebook', 285)]),
+    bk('winter', 'Winter Lighthouse', 'Saskia Brandt', [cp('kobo', 'ebook', 295), cp('apple', 'audio', 296)]),
+    bk('recipes', 'Recipes for a Slow Week', 'Hedda Lindqvist', [cp('own', 'ebook', 300, { lf: true, file: true })]),
+    bk('birds', 'Field Notes on Tidewater Birds', 'Anselm Rook', [cp('own', 'pdf', 120, { lf: true, file: true })], { status: 'finished', opened: 140, rating: 5, note: 'Read it on the ferry. The tern chapter is the best.' }),
+    bk('knots', 'A Short Manual of Knots', 'Petra Oyelaran', [cp('own', 'pdf', 100, { lf: true, file: true })], { status: 'finished', opened: 130 }),
+    bk('ferry', 'Night Ferry to Sundmark', 'Lowen Takeda', [cp('apple', 'audio', 150)], { status: 'finished', opened: 200 }),
+    bk('dunes', 'The Whispering Dunes', 'Maren Oduya', [cp('apple', 'audio', 160)], { status: 'finished', opened: 220, rating: 4, note: 'Slow start, worth it.' }),
+    wsh('w1', "The Clockmaker's Weather", 'Yara Pellegrin', 1),
+    wsh('w2', 'Lanterns Under Ice', 'Teodor Wrenfield', 2),
+    wsh('w3', 'A Garden of Borrowed Rooms', 'Nils Everhart', 3),
+  ],
+  series: { 'the lantern cycle': { total: 5, vols: [[1, 'Ember Road'], [2, 'Ash Harbour'], [3, 'The Salt Lamp'], [4, 'Glass Tide'], [5, 'Lantern Rising']] } },
+  newId: 1,
+});
+
+/* ---------- The app's own rules (ported from Library.swift) ---------- */
+const plain = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const ART = ['the', 'a', 'an', 'der', 'die', 'das', 'en', 'ett', 'den', 'det'];
+const wordsOf = t => plain(t).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+function titleKey(t) {
+  t = plain(t);
+  for (const m of [':', ' (', ' [', ' - ', ' \u2013 ', ' \u2014 ']) { const i = t.indexOf(m); if (i >= 3) t = t.slice(0, i); }
+  const w = wordsOf(t); if (w.length > 1 && ART.includes(w[0])) w.shift(); return w.join(' ');
+}
+function authorKey(a) {
+  a = plain(a); for (const m of [';', '&', ' and ', ' och ', ' und ']) { const i = a.indexOf(m); if (i >= 0) a = a.slice(0, i); }
+  const parts = a.split(',').map(x => x.trim()).filter(Boolean); let name;
+  if (parts.length >= 2 && !parts[0].includes(' ')) name = parts[0]; else name = (parts[0] || '').split(' ').filter(Boolean).pop() || '';
+  return name.replace(/[^\p{L}]/gu, '');
+}
+const sameBook = (t1, a1, t2, a2) => { const k = titleKey(t1); if (!k || k !== titleKey(t2)) return false; const x = authorKey(a1), y = authorKey(a2); return !x || !y || x === y; };
+const shown = () => S.d.books.filter(b => !b.removed);
+const owned = () => shown().filter(b => b.copies.length);
+const bookOf = id => S.d.books.find(b => b.id === id);
+const isAudio = b => b.copies.some(c => c.kind === 'audio');
+const isLock = b => b.copies.some(c => c.lf);
+const purchased = b => b.copies.length ? Math.max(...b.copies.map(c => c.bought)) : null;
+const storesOf = b => STORES.filter(s => b.copies.some(c => c.s === s));
+const ownedTwice = b => [false, true].some(au => new Set(b.copies.filter(c => (c.kind === 'audio') === au && c.s !== 'own').map(c => c.s)).size > 1);
+const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+const byTitle = (a, b) => cmp(titleKey(a.title), titleKey(b.title));
+const recent = (a, b) => (b.opened ?? b.added) - (a.opened ?? a.added);
+function currentReader() {
+  const latest = Math.max(...owned().map(b => b.opened ?? -1), 0);
+  return b => { if (b.status !== 'reading' || b.gaveUp) return false; if (b.byHand) return true; if (b.opened == null) return true; return latest - b.opened <= 90; };
+}
+function seriesNote(books, info) {
+  const nums = new Set(books.map(b => b.num).filter(n => n >= 1 && n === Math.round(n)));
+  const top = Math.max(0, ...nums); let note, last = top - 1;
+  if (info && info.total >= Math.max(top, books.length) && info.total <= 200) { note = `${books.length} of ${info.total}`; last = info.total; } else note = `${books.length} owned`;
+  if (top < 1 || last < 1) return note;
+  const missing = []; for (let i = 1; i <= last; i++) if (!nums.has(i)) missing.push(String(i));
+  if (!missing.length || missing.length > 8) return note;
+  const list = missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1];
+  return note + ` ${MID} missing ${list}`;
+}
+function shelves() {
+  const out = [], ow = owned(), cur = currentReader();
+  const reading = ow.filter(cur).sort(recent);
+  if (reading.length) out.push({ id: 'reading', title: 'Reading now', colour: 'purple', books: reading });
+  const unread = ow.filter(b => b.status === 'unread').sort((a, b) => (purchased(b) ?? -1e9) - (purchased(a) ?? -1e9) || cmp(a.title, b.title));
+  if (unread.length) out.push({ id: 'unread', title: `Not read yet ${MID} ${unread.length}`, colour: 'red', books: unread });
+  const mem = {}, names = {};
+  ow.forEach(b => { const n = (b.series || '').trim(); if (!n) return; const k = plain(n); (mem[k] = mem[k] || []).push(b); names[k] = names[k] || n; });
+  Object.keys(mem).sort().forEach(k => { if (mem[k].length < 2) return;
+    const s = mem[k].slice().sort((a, b) => ((a.num ?? 1e9) - (b.num ?? 1e9)) || cmp(a.title, b.title));
+    out.push({ id: 'series-' + k, title: names[k], colour: 'green', note: seriesNote(s, S.d.series[k]), books: s }); });
+  const aside = ow.filter(b => b.status === 'reading' && !b.gaveUp && !cur(b)).sort(recent);
+  if (aside.length) out.push({ id: 'aside', title: `Set aside ${MID} ${aside.length}`, colour: 'brown', books: aside });
+  const lf = ow.filter(isLock).sort(byTitle); if (lf.length) out.push({ id: 'lockfree', title: `Lock-free ${MID} ${lf.length}`, colour: 'teal', books: lf });
+  const au = ow.filter(isAudio).sort(byTitle); if (au.length) out.push({ id: 'audio', title: `Audiobooks ${MID} ${au.length}`, colour: 'amber', books: au });
+  const tw = ow.filter(ownedTwice).sort(byTitle); if (tw.length) out.push({ id: 'twice', title: `Bought twice ${MID} ${tw.length}`, colour: 'pink', books: tw });
+  const fin = ow.filter(b => b.status === 'finished').sort(recent); if (fin.length) out.push({ id: 'finished', title: `Finished ${MID} ${fin.length}`, colour: 'grey', books: fin });
+  const gu = ow.filter(b => b.gaveUp && b.status === 'reading').sort(byTitle); if (gu.length) out.push({ id: 'gaveup', title: `Gave up ${MID} ${gu.length}`, colour: 'grey', books: gu });
+  const wi = shown().filter(b => b.wish).sort((a, b) => b.added - a.added);
+  out.push({ id: 'wish', title: wi.length ? `Wish list ${MID} ${wi.length}` : 'Wish list', colour: 'blue', note: wi.length ? null : 'Nothing wished for yet.', books: wi });
+  return out;
+}
+const shelfById = id => shelves().find(s => s.id === id);
+function nextInSeries(b) {
+  const name = (b.series || '').trim(); if (!name || !(b.num >= 1) || b.num !== Math.round(b.num)) return null;
+  const key = plain(name), next = b.num + 1, others = owned().filter(o => o.id !== b.id && plain(o.series || '') === key);
+  const have = others.find(o => o.num === next); if (have) return { number: next, title: have.title, owned: have };
+  const info = S.d.series[key], vol = info && info.vols.find(v => v[0] === next); if (vol) return { number: next, title: vol[1], owned: null };
+  if (info && info.total != null) return next <= info.total ? { number: next, title: null, owned: null } : null;
+  return others.some(o => (o.num || 0) > next) ? { number: next, title: null, owned: null } : null;
+}
+function whatNext() {
+  const out = [], add = (b, reason) => { if (out.length < 8 && !out.some(x => x.book.id === b.id)) out.push({ book: b, reason }); };
+  const ow = owned();
+  ow.filter(b => b.status === 'finished' && b.series).sort(recent).forEach(b => { const n = nextInSeries(b); if (n && n.owned && n.owned.status === 'unread') add(n.owned, `Next in ${b.series}, after ${LQ}${b.title}${RQ}`); });
+  const un = ow.filter(b => b.status === 'unread' && purchased(b) != null).sort((a, b) => purchased(b) - purchased(a));
+  if (un.length) add(un[0], 'Your newest book');
+  un.slice().reverse().forEach(b => add(b, 'Waiting since ' + monthYear(purchased(b))));
+  return out;
+}
+function findBooks(q) {
+  const w = wordsOf(q); if (!w.length) return [];
+  return shown().filter(b => { const hay = plain([b.title, b.author, b.series || '', b.note || ''].join(' ')); return w.every(x => hay.includes(x)); })
+    .sort((a, b) => (a.wish ? 1 : 0) - (b.wish ? 1 : 0) || byTitle(a, b));
+}
+const ownedMatch = (t, a) => owned().find(b => sameBook(b.title, b.author, t, a));
+function addBook(title, author, store) {
+  title = title.trim(); author = author.trim(); if (!title) return null;
+  const m = shown().find(b => sameBook(b.title, b.author, title, author));
+  if (!store) { if (m) return m; const b = bk('wish:' + (S.d.newId++), title, author, [], { wish: true, added: 320 }); S.d.books.push(b); return b; }
+  const c = cp(store, 'ebook', 320, { src: 'hand', lf: store === 'own' });
+  if (m) { if (!m.copies.some(x => x.s === store)) m.copies.push(c); m.wish = false; return m; }
+  const b = bk('hand:' + (S.d.newId++), title, author, [c], { added: 320 }); S.d.books.push(b); return b;
+}
+const canRemove = b => b.copies.every(c => c.src === 'hand' || c.src === 'kindle' || c.src === 'file');
+function applyFilter(books, f) {
+  let o = books.slice();
+  if (f.store) o = o.filter(b => b.copies.some(c => c.s === f.store));
+  if (f.kind === 'read') o = o.filter(b => !b.copies.length || b.copies.some(c => c.kind !== 'audio'));
+  if (f.kind === 'listen') o = o.filter(isAudio);
+  if (f.order === 'title') o.sort(byTitle);
+  else if (f.order === 'author') o.sort((a, b) => cmp(authorKey(a.author) + '|' + titleKey(a.title), authorKey(b.author) + '|' + titleKey(b.title)));
+  else if (f.order === 'newest') o.sort((a, b) => (purchased(b) ?? -1e9) - (purchased(a) ?? -1e9));
+  return o;
+}
+/* A pretend book catalogue for the barcode page (check digits are valid, like the real ones must be) */
+const CAT = { '9781000000016': ['Ember Road', 'Teodor Wrenfield'], '9781000000023': ['The Salt Lamp', 'Teodor Wrenfield'], '9781000000030': ['Lanterns Under Ice', 'Teodor Wrenfield'] };
+const isbn13ok = d => d.length === 13 && (d.split('').reduce((s, c, i) => s + (+c) * (i % 2 ? 3 : 1), 0) % 10 === 0);
+const tileColor = t => { const T = ['#7A508A', '#33709E', '#21806B', '#A85C3D', '#9E7824', '#5C619E', '#8F4561', '#4D754D'];
+  let s = 0; for (const ch of t) s = (s * 31 + ch.codePointAt(0)) % 9973; return T[s % 8]; };
+
+/* ---------- The pretend phone: state ---------- */
+const mkAdd = t => ({ title: t || '', author: '', where: 'wish', missing: false, menu: false });
+const mkScan = () => ({ num: '', short: false, res: null, added: false });
+const START = () => ({ d: mkData(), mode: 'app', path: [], sh: [], spath: [], menu: null, fmenu: null, confirm: null, wn: 0, fil: { store: null, kind: 'all', order: 'shelf' },
+  sq: '', add: mkAdd(''), scan: mkScan(), note: { id: null, stars: 0, text: '' }, wishedNext: {}, notice: '', focus: null,
+  sf: { page: 'A', phase: 'page', title: '', author: '', kind: '', hits: [] }, toast: '' });
+let S = START();
+const set = (o, fn) => { S = Object.assign(START(), o || {}); if (fn) fn(S); };
+const timers = [];
+const later = (fn, ms) => { const h = setTimeout(fn, ms); timers.push(h); return h; };
+const clearTimers = () => { while (timers.length) clearTimeout(timers.pop()); };
+
+/* ---------- Drawing the pretend phone ---------- */
+const dot = s => `<i class="d8" style="background:var(--k-${s})"></i>`;
+function coverHTML(b, w) {
+  const big = w >= 56;
+  return `<div class="cv" style="--w:${w}px;background:${tileColor(b.title)}">${big ? `<b style="font-size:${Math.max(9, w * .13).toFixed(1)}px">${esc(b.title)}</b><i style="font-size:${Math.max(8, w * .1).toFixed(1)}px">${esc(b.author)}</i>` : ''}</div>`;
+}
+const marksHTML = b => `<div class="marks" data-t="marks-${b.id}">${storesOf(b).map(dot).join('')}${isLock(b) ? ico('lock', 13, '', 'color:var(--teal)') : ''}${isAudio(b) ? ico('phones', 13, '', 'color:var(--amber)') : ''}${b.wish ? ico('bookmark', 12, '', 'color:var(--blue)') : ''}</div>`;
+const tileHTML = (b, w) => `<button class="tile" data-act="book" data-id="${b.id}" data-t="cv-${b.id}" aria-label="${esc(b.title)}">${coverHTML(b, w)}${marksHTML(b)}</button>`;
+const sid = id => id.replace(/\s+/g, '-');
+function shelfHTML(sh) {
+  const c = `var(--${sh.colour})`;
+  return `<div class="shelf"><button class="shh" data-act="shelf" data-id="${esc(sh.id)}" data-t="shelf-${esc(sid(sh.id))}" ${sh.books.length ? '' : 'disabled'}><b style="color:${c}">${esc(sh.title)}</b>${sh.note ? `<small>${esc(sh.note)}</small>` : ''}${sh.books.length > 3 ? ico('chevR', 14, '', `color:${c}`) : ''}</button>
+    ${sh.books.length ? `<div class="hrow">${sh.books.map(b => tileHTML(b, 78)).join('')}</div>` : ''}</div>`;
+}
+function mainHTML() {
+  const ideas = whatNext(); let h = `<div class="scr" data-keep data-k="main">`;
+  if (!owned().length) h += `<div class="pnote"><b style="color:var(--purple)">Your shelf is empty</b></div>`;
+  if (ideas.length) {
+    const it = ideas[S.wn % ideas.length];
+    h += `<div class="wnc"><button class="go" data-act="whatnext" data-id="${it.book.id}" data-t="whatnext">${coverHTML(it.book, 50)}<span><span class="t1">What next?</span><br><span class="t2">${esc(it.book.title)}</span><br><span class="t3">${esc(it.reason)}</span>${marksHTML(it.book)}</span></button>${ideas.length > 1 ? `<button class="lk" data-act="another" data-t="whatnext-another">Another</button>` : ''}</div>`;
+  }
+  shelves().forEach(sh => h += shelfHTML(sh));
+  h += `</div><div class="pnav"><span class="ptitle">My Books</span><div class="ptools">
+    <button class="ibtn" data-act="search" data-t="open-search" aria-label="Search">${icon('search', 'g')}</button>
+    <button class="ibtn" data-act="plusmenu" data-t="add-menu" aria-label="Add a book">${icon('plus', 'g')}</button>
+    <button class="ibtn" data-act="settings" data-t="settings" aria-label="Settings">${icon('gear', 'g')}</button></div></div>`;
+  if (S.menu === 'plus') h += `<div class="menu" style="right:10px;top:90px"><button data-act="add-book" data-t="add-book">Add a book</button><button data-act="open-scan" data-t="open-scan">Scan a barcode</button></div>`;
+  return h;
+}
+function starsHTML(n, size, tap) {
+  return `<div class="stars" ${tap ? '' : 'data-t="stars"'}>${[1, 2, 3, 4, 5].map(i => `<button ${tap ? `data-act="star" data-id="${i}" data-t="star-${i}" style="cursor:pointer"` : ''} aria-label="${i} star${i > 1 ? 's' : ''}"><svg width="${size}" height="${size}" viewBox="0 0 24 24" class="${i <= n ? 'on' : ''}"><path d="${ICON.star}"/></svg></button>`).join('')}</div>`;
+}
+const kindName = k => k === 'audio' ? 'audiobook' : k === 'pdf' ? 'PDF' : 'ebook';
+const canOpen = c => c.src === 'hand' ? false : c.s === 'own' ? c.src === 'apple' : true;
+function bookBody(b) {
+  const st = [['unread', 'Not read'], ['reading', 'Reading'], ['finished', 'Finished']];
+  const nx = nextInSeries(b); let h = `<div class="pad" data-t="bookpage">`;
+  h += `<div class="bhead">${coverHTML(b, 100)}<div style="min-width:0"><h2>${esc(b.title)}</h2>${b.author ? `<div class="au">${esc(b.author)}</div>` : ''}
+    ${b.series ? `<div class="fn">${esc(b.series)}${b.num != null ? ` ${MID} book ${b.num === Math.round(b.num) ? b.num : b.num}` : ''}</div>` : ''}
+    ${marksHTML(b)}${ownedTwice(b) ? `<div class="flag" style="color:var(--red)" data-t="owned-twice">Owned twice</div>` : ''}${b.wish ? `<div class="flag" style="color:var(--blue)">On your wish list</div>` : ''}</div></div>`;
+  h += `<div class="seg3">${st.map(([v, l]) => `<button class="${b.status === v ? 'on' : ''}" data-act="status" data-id="${b.id}" data-v="${v}" data-t="status-${v}">${l}</button>`).join('')}</div>`;
+  if (b.status === 'reading' || b.gaveUp) h += `<div class="lnk3">${b.gaveUp ? `<span>You gave this one up.</span><button data-act="pickup" data-id="${b.id}" data-t="pick-up">Pick it up again</button>` : `<button data-act="gaveup" data-id="${b.id}" data-t="gave-up">Gave up on it</button>`}</div>`;
+  h += `<div class="blk" data-t="stars-note"><div class="hdl"><h3 style="color:var(--amber)">Your stars and note</h3><button class="edit" data-act="edit-note" data-id="${b.id}" data-t="note-edit">Edit</button></div>${starsHTML(b.rating || 0, 20, false)}${b.note ? `<div>${esc(b.note)}</div>` : `<div class="sm">No note yet.</div>`}</div>`;
+  if (nx) {
+    h += `<div class="blk" data-t="next-series"><h3 style="color:var(--green)">Next in the series</h3>`;
+    if (nx.owned) h += `<button class="nrow" data-act="book" data-id="${nx.owned.id}" data-t="next-owned">${coverHTML(nx.owned, 34)}<span><span style="display:block">Book ${nx.number}: ${esc(nx.owned.title)}</span><span class="sm">On your shelf ${MID} ${{ unread: 'not read', reading: 'reading', finished: 'finished' }[nx.owned.status]}</span></span></button>`;
+    else {
+      h += `<div>${nx.title ? `Book ${nx.number}: ${esc(nx.title)}` : `Book ${nx.number}`}</div>`;
+      if (S.wishedNext[b.id]) h += `<div class="sm">Added to your wish list.</div>`;
+      else { h += `<div class="sm">Not on your shelf.</div>`; if (nx.title) h += `<button class="fbtn" style="background:var(--green);margin-top:6px;background:#128559" data-act="next-wish" data-id="${b.id}" data-t="next-add-wish">Add to wish list</button>`; }
+    }
+    h += `</div>`;
+  }
+  if (b.wish) h += `<div class="blk" data-t="where-to-buy"><h3 style="color:var(--blue)">Where to buy</h3>${b.id === 'w1' ? `<button class="alink" data-act="link" data-t="price-apple">Apple Books ${MID} 119 kr</button>` : `<div class="sm" style="font-size:15px">Apple Books shows no price for this title in Sweden.</div>`}
+    <button class="alink" data-act="link">Look on Kobo</button><button class="alink" data-act="link">Look on Kindle</button>
+    <div class="sm">Kobo and Kindle do not let an app read their prices, so these two open their search pages in your browser.</div></div>`;
+  if (b.copies.length) {
+    h += `<div class="blk" data-t="stores">` + b.copies.map(c => `<div class="crow"><i class="d8" style="width:10px;height:10px;background:var(--k-${c.s})"></i><div><div>${SNAME[c.s]} ${MID} ${kindName(c.kind)}</div><div class="sm">bought ${fmtDay(c.bought)}</div></div><span class="sp"></span>
+      ${canOpen(c) ? `<button class="openb" data-act="open-store" data-id="${c.s}" data-bid="${b.id}" data-t="open-${c.s}">${ico('openApp', 18)}Open</button>` : ''}</div>`).join('') + `</div>`;
+  }
+  if (isLock(b)) h += `<div class="blk"><h3 style="color:var(--purple)">Send</h3><div class="sm">Sending is done on the Mac.</div></div>`;
+  if (S.notice) h += `<div class="sm" style="margin-bottom:10px">${esc(S.notice)}</div>`;
+  if (canRemove(b)) h += `<button class="rmv" data-act="remove" data-id="${b.id}" data-t="book-remove">Remove from shelf</button>`;
+  return h + `</div>`;
+}
+const backBtn = label => `<button class="pback" data-act="back" data-back data-t="back">${icon('chevL', 'g')}<span>${esc(label)}</span></button>`;
+function stackLabel(path, i, root) { if (i === 0) return root; const p = path[i - 1]; return p.t === 'shelf' ? (shelfById(p.id) || { title: 'Shelf' }).title : 'Back'; }
+function pageHTML(path, i, root) {
+  const r = path[i];
+  if (r.t === 'book') {
+    const b = bookOf(r.id); const body = b ? bookBody(b) : `<div class="pad sm">This book is no longer on the shelf.</div>`;
+    return { scr: `<div class="scr" data-keep data-k="book:${r.id}">${body}</div>`, nav: backBtn(stackLabel(path, i, root)) };
+  }
+  const sh = shelfById(r.id) || { title: 'Shelf', colour: 'grey', books: [] }, all = sh.books, books = applyFilter(all, S.fil), f = S.fil;
+  const lab = { store: f.store ? SNAME[f.store] : 'All stores', kind: { all: 'Read or listen', read: 'To read', listen: 'To listen' }[f.kind], order: { shelf: 'Shelf order', title: 'By title', author: 'By author', newest: 'Newest first' }[f.order] };
+  const col = `var(--${sh.colour})`;
+  const sel = (k, text) => `<button class="fsel" style="color:${col}" data-act="fmenu" data-id="${k}" data-t="filter-${k}">${text}${icon('updown', 'g')}</button>`;
+  const plainF = !f.store && f.kind === 'all' && f.order === 'shelf';
+  return { scr: `<div class="scr" data-keep data-k="shelf:${r.id}"><h1 class="big" style="color:${col}">${esc(sh.title)}</h1><div class="frow">${sel('store', lab.store)}${sel('kind', lab.kind)}${sel('order', lab.order)}</div>
+    ${plainF ? '' : `<div class="sm" style="padding:0 12px 6px;color:var(--pmuted);font-size:13px" data-t="filter-count">${books.length ? `Showing ${books.length} of ${all.length}.` : 'No book of this shelf fits.'}</div>`}
+    <div class="grid3">${books.map(b => `<div>${tileHTML(b, 92)}<div class="gcap">${esc(b.title)}</div></div>`).join('')}</div></div>`, nav: backBtn(stackLabel(path, i, root)) };
+}
+function filterMenu() {
+  const opts = { store: [[null, 'All stores'], ['kobo', 'Kobo'], ['kindle', 'Kindle'], ['apple', 'Apple Books'], ['own', 'Own file']], kind: [['all', 'Read or listen'], ['read', 'To read'], ['listen', 'To listen']],
+    order: [['shelf', 'Shelf order'], ['title', 'By title'], ['author', 'By author'], ['newest', 'Newest first']] }[S.fmenu];
+  const left = { store: 12, kind: 105, order: 230 }[S.fmenu];
+  return `<div class="menu" style="left:${left}px;top:${S.fmenuTop || 200}px">${opts.map(([v, l]) => `<button data-act="fopt" data-id="${S.fmenu}" data-v="${v}" data-t="fopt-${S.fmenu}-${v}">${S.fil[S.fmenu] === v ? icon('check', 'g ck') : '<span class="ck"></span>'}${l}</button>`).join('')}</div>`;
+}
+/* sheets */
+const sheetNav = (left, title, right) => `<div class="snav">${left || '<span></span>'}<span class="st">${esc(title)}</span>${right}</div>`;
+const doneBtn = (colour, label) => `<button class="hb fill" style="background:var(--${colour})" data-act="sheet-close" data-close data-t="sheet-done">${label || 'Done'}</button>`;
+function resultRow(b) { return `<button class="rres" data-act="book" data-id="${b.id}" data-t="result-${b.id}">${coverHTML(b, 34)}<span><b>${esc(b.title)}</b><small>${esc(b.author)}</small><span style="display:flex;gap:8px;align-items:center">${marksHTML(b)}${b.wish ? `<small style="color:var(--blue);font-weight:600">Wish</small>` : ''}</span></span></button>`; }
+function searchSheet() {
+  const q = S.sq.trim(), res = q ? findBooks(q) : [];
+  if (S.spath.length) { const p = pageHTML(S.spath, S.spath.length - 1, 'Search'); return `<div class="sheet">${sheetNav(p.nav, '', '')}${p.scr}</div>`; }
+  let body = '';
+  if (!q) body = `<div class="sm" style="padding:0 18px;font-size:15px;color:var(--pmuted)">Type a title, an author or a series to see whether you already own it, and in which store.</div>`;
+  else if (!res.length) body = `<div style="padding:0 18px"><div style="color:var(--pmuted)" data-t="search-none-text">Not on your shelf.</div><button class="fullb" style="background:var(--blue);width:auto;display:inline-block;padding:7px 14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" data-act="search-add" data-t="search-add">Add ${LQ}${esc(q)}${RQ}${ELL}</button></div>`;
+  else { const n = res.filter(b => !b.wish).length; body = `<div class="sm" style="padding:0 18px 6px;font-size:13px;color:var(--pmuted)" data-t="search-count">${n ? (n === 1 ? 'You own 1 matching book.' : `You own ${n} matching books.`) : (res.length === 1 ? '1 matching book.' : `${res.length} matching books.`)}</div>${res.map(resultRow).join('')}`; }
+  return `<div class="sheet">${sheetNav('', 'Search', doneBtn('purple'))}<div class="scr" data-keep data-k="sh-search"><div class="sfield">${icon('search', 'g')}<input data-in="search" data-t="search-field" placeholder="Title, author or series" value="${esc(S.sq)}" autocomplete="off" autocapitalize="off" spellcheck="false">${S.sq ? `<button class="xr" data-act="search-clear">${icon('cross', 'g')}</button>` : ''}</div>${body}</div></div>`;
+}
+const WHERE = [['wish', 'Wish list'], ['kindle', 'Kindle'], ['kobo', 'Kobo'], ['apple', 'Apple Books'], ['own', 'Own file']];
+function addSheet() {
+  const a = S.add, t = a.title.trim(), m = t.length >= 3 ? ownedMatch(t, a.author) : null;
+  const left = `<button class="hb" data-act="sheet-close" data-close data-t="add-cancel">${icon('cross', 'g')}Cancel</button>`;
+  const right = `<button class="hb fill" style="background:var(--blue)" data-act="add-save" data-t="add-save">${icon('check', 'g')}Save</button>`;
+  const wl = WHERE.find(w => w[0] === a.where)[1];
+  return `<div class="sheet grp">${sheetNav(left, 'Add a book', right)}<div class="scr" data-keep data-k="sh-add"><div class="cell">
+    <input class="fi" data-in="add-title" data-t="add-title" placeholder="Title" value="${esc(a.title)}" autocomplete="off">
+    ${a.missing ? `<div class="msg" data-t="add-missing">Type a title first.</div>` : ''}
+    <input class="fi" data-in="add-author" data-t="add-author" placeholder="Author" value="${esc(a.author)}" autocomplete="off">
+    <button class="srow" data-act="where-menu" data-t="add-where"><span>Where</span><span class="sp"></span><span style="color:var(--pmuted)">${wl}</span>${ico('updown', 14, '', 'color:var(--pmuted)')}</button></div>
+    ${m ? `<div class="cell"><div class="warnc" data-t="add-owned">You already own ${LQ}${esc(m.title)}${RQ} \u2014 in ${storesOf(m).map(s => SNAME[s]).join(' and ')}.</div></div>` : ''}</div>
+    ${a.menu ? `<div class="menu" style="right:26px;top:192px">${WHERE.map(([v, l]) => `<button data-act="where-pick" data-id="${v}" data-t="where-${v}">${a.where === v ? icon('check', 'g ck') : '<span class="ck"></span>'}${l}</button>`).join('')}</div>` : ''}</div>`;
+}
+function scanSheet() {
+  const sc = S.scan; let res = '';
+  if (sc.res) {
+    const r = sc.res;
+    if (r.kind === 'unknown') res = `<div class="resbox" data-t="scan-result"><h4 style="color:var(--red)">This number is not in the book catalogue.</h4><button class="fullb" style="background:var(--red)" data-act="scan-hand" data-t="scan-add-hand">Add by hand</button></div>`;
+    else if (r.kind === 'owned') res = `<div class="resbox" data-t="scan-result"><h4 style="color:var(--green)">You own this</h4><div style="display:flex;gap:10px">${coverHTML(r.book, 60)}<div><b>${esc(r.book.title)}</b><div style="color:var(--pmuted)">${esc(r.book.author)}</div>${marksHTML(r.book)}<div class="sm" style="font-size:13px;color:var(--pmuted)">in ${storesOf(r.book).map(s => SNAME[s]).join(' and ')}</div></div></div></div>`;
+    else if (r.kind === 'wished') res = `<div class="resbox" data-t="scan-result"><h4 style="color:var(--blue)">Already on your wish list</h4><b>${esc(r.t)}</b><div style="color:var(--pmuted)">${esc(r.a)}</div></div>`;
+    else res = `<div class="resbox" data-t="scan-result"><h4 style="color:var(--red)">Not on your shelf</h4><b>${esc(r.t)}</b><div style="color:var(--pmuted)">${esc(r.a)}</div>${sc.added ? `<div style="color:var(--green);margin-top:6px">Added to your wish list.</div>` : `<button class="fullb" style="background:var(--red)" data-act="scan-wish" data-t="scan-add-wish">Add to wish list</button>`}</div>`;
+  }
+  return `<div class="sheet">${sheetNav('', 'Scan a book', doneBtn('red'))}<div class="scr" data-keep data-k="sh-scan" style="padding-left:16px;padding-right:16px">
+    <div class="cam"><div><svg viewBox="0 0 56 36"><path d="M4 4v28M9 4v28M14 4v28M21 4v28M26 4v28M33 4v28M38 4v28M45 4v28M52 4v28"/></svg><div style="margin-top:8px">The real page shows a live camera here that reads the barcode. This practice phone has none: type the number below.</div></div></div>
+    <input class="fi" style="border:1px solid var(--pline);border-radius:8px;min-height:40px" data-in="scan" data-t="scan-number" inputmode="numeric" placeholder="Number under the barcode" value="${esc(sc.num)}" autocomplete="off">
+    ${sc.short ? `<div class="msg" style="padding:6px 0" data-t="scan-short">Type the 10 or 13 digits under the barcode.</div>` : ''}
+    <button class="fullb" style="background:var(--red)" data-act="scan-lookup" data-t="scan-lookup">Look up</button>${res}</div></div>`;
+}
+const lines = { apple: `5 books ${MID} read 7 Nov 2026, 00:00`, kindle: `3 books on the shelf ${MID} last change 2 Nov 2026, 00:00`, kobo: `7 books ${MID} read 7 Nov 2026, 00:00` };
+function settingsSheet() {
+  const row = s => `<div class="srow" data-t="row-${s}" style="cursor:default"><i class="d8" style="background:var(--k-${s});align-self:flex-start;margin-top:7px"></i><span>${SNAME[s]}<span class="sub">${lines[s]}</span></span></div>`;
+  return `<div class="sheet grp">${sheetNav('', 'Settings', doneBtn('purple'))}<div class="scr" data-keep data-k="sh-settings">
+    <div class="cell"><button class="srow" data-act="soon" data-t="how">How it works<span class="sp"></span>${ico('chevR', 14, '', 'color:var(--pmuted)')}</button><button class="srow" data-act="soon">What${'\u2019'}s new<span class="sp"></span>${ico('chevR', 14, '', 'color:var(--pmuted)')}</button></div>
+    <div class="ghd" style="color:var(--purple)">Book lists</div><div class="cell" data-t="book-lists">${row('apple')}${row('kindle')}${row('kobo')}
+    <button class="srow" style="color:var(--purple)" data-act="import" data-t="import-kindle">Import Kindle list${ELL}</button></div>
+    <div class="gft">The lists are read on your Mac and arrive here through iCloud.<br>AMS Reading Companion 0.3</div></div></div>`;
+}
+function noteSheet() {
+  const n = S.note, left = `<button class="hb" data-act="sheet-close" data-close data-t="note-cancel">Cancel</button>`;
+  const right = `<button class="hb fill" style="background:var(--amber)" data-act="note-save" data-t="note-save">Save</button>`;
+  return `<div class="sheet grp">${sheetNav(left, 'Stars and note', right)}<div class="scr" data-keep data-k="sh-note"><div class="ghd" style="margin-bottom:4px">Stars</div><div class="cell" style="padding:8px 14px">${starsHTML(n.stars, 30, true)}<div class="sm" style="font-size:13px;color:var(--pmuted)">${n.stars === 0 ? 'No stars. Tap a star to rate.' : 'Tap the last filled star to take one away.'}</div></div>
+    <div class="ghd" style="margin-bottom:4px">Your note</div><div class="cell"><input class="fi" data-in="note" data-t="note-text" placeholder="One line about this book" value="${esc(n.text)}" autocomplete="off"></div></div></div>`;
+}
+/* The Share check: a pretend web page, a pretend Share sheet and the small card of the app's Share extension */
+const SFP = { A: { title: 'Glass Tide by Teodor Wrenfield | Example Books', t: 'Glass Tide', a: 'Teodor Wrenfield' }, B: { title: 'The Salt Lamp by Teodor Wrenfield | Example Books', t: 'The Salt Lamp', a: 'Teodor Wrenfield' } };
+function shareMatches(pt) {
+  const pw = wordsOf(pt), has = nw => { if (!nw.length || nw.length > pw.length) return false; for (let i = 0; i <= pw.length - nw.length; i++) if (nw.every((w, j) => pw[i + j] === w)) return true; return false; };
+  return shown().filter(b => { const kw = wordsOf(titleKey(b.title)); if (!has(kw)) return false; const la = authorKey(b.author), af = la && pw.includes(la); const letters = kw.join('').length; return !(letters < 5 && !af); });
+}
+function safariHTML() {
+  const p = SFP[S.sf.page], ph = S.sf.phase; const b = bookOf(S.sf.page === 'A' ? 'glass' : null);
+  let h = `<div class="sf"><div class="sfbar"><div class="sfurl">books.example</div></div><div class="sfpage"><div style="display:flex;gap:14px"><div class="cv" style="--w:86px;background:${tileColor(p.t)}"><b style="font-size:11px">${esc(p.t)}</b><i style="font-size:8.6px">${esc(p.a)}</i></div><div><h2>${esc(p.t)}</h2><div style="color:var(--pmuted)">by ${esc(p.a)}</div><div style="color:var(--pmuted);font-size:13px;margin-top:6px">Ebook ${MID} Example Books</div></div></div><div class="ln" style="margin-top:20px"></div><div class="ln"></div><div class="ln" style="width:70%"></div><div class="ln"></div><div class="ln" style="width:50%"></div></div>
+    <div class="sftool"><button class="ibtn" data-act="sf-share" data-t="sf-share" aria-label="Share">${icon('share', 'g')}</button></div>`;
+  if (ph === 'share') h += `<div class="dim"></div><div class="sheet grp" style="top:380px"><div style="padding:14px 16px 4px;font-size:13px;color:var(--pmuted)">${esc(p.title)}</div><div class="apps"><button class="app"><span class="tl">${icon('msg', 'g')}</span>Messages</button><button class="app"><span class="tl">${icon('mail', 'g')}</span>Mail</button><button class="app"><span class="tl">${icon('notes', 'g')}</span>Notes</button><button class="app me" data-act="sf-app" data-t="sf-app"><span class="tl">${icon('book', 'g')}</span>AMS Reading</button></div><div class="cell" style="margin-top:6px"><div class="srow" style="color:var(--pmuted)">Copy</div><div class="srow" style="color:var(--pmuted)">Add Bookmark</div></div>
+    <button class="hb" style="position:absolute;top:8px;right:10px" data-act="sf-close" data-close data-t="sf-close">${icon('cross', 'g')}</button></div>`;
+  if (ph === 'card') {
+    const sf = S.sf; let c = `<div style="font-weight:600;color:var(--purple);font-size:17px">AMS Reading</div>`;
+    if (sf.kind === 'owned') c += `<h4 style="color:var(--green)" data-t="share-owned">You own this</h4>${sf.hits.map(x => `<div>${esc(x.title)} \u2014 ${esc(x.author)}</div><div style="color:var(--pmuted);font-size:14px">in ${storesOf(x).map(s => SNAME[s]).join(' and ')}${x.wish ? ' \u00b7 On your wish list' : ''}</div>`).join('')}`;
+    else c += `<h4 style="color:#D9730D" data-t="share-none">Not on your shelf</h4><input class="fi2" data-in="sf-title" value="${esc(sf.title)}" placeholder="Title"><input class="fi2" data-in="sf-author" value="${esc(sf.author)}" placeholder="Author"><button class="fullb" style="background:#7A508A" data-act="sf-add" data-t="share-add">Add to wish list</button>`;
+    c += `<button class="fullb" style="background:#7A508A;margin-top:14px" data-act="sf-close" data-close data-t="share-done">Done</button>`;
+    h += `<div class="dim"></div><div class="sheet" style="top:330px"><div class="card">${c}</div></div>`;
+  }
+  return h + `</div>`;
+}
+function renderStage() {
+  const st = document.getElementById('stage');
+  const prevKeys = renderStage.keys || {}, scrolls = renderStage.scrolls = renderStage.scrolls || {};
+  st.querySelectorAll('[data-keep]').forEach(e => { if (e.dataset.k) scrolls[e.dataset.k] = e.scrollTop; });
+  const ae = document.activeElement, inId = ae && st.contains(ae) ? ae.dataset.in : null, sel = inId ? [ae.selectionStart, ae.selectionEnd] : null;
+  let body = '';
+  if (S.mode === 'safari') body = safariHTML();
+  else if (S.path.length) { const p = pageHTML(S.path, S.path.length - 1, 'My Books'); body = p.scr + `<div class="pnav">${p.nav}</div>`; }
+  else body = mainHTML();
+  let over = '';
+  if (S.mode === 'app') S.sh.forEach((k, i) => { over += `<div class="dim" style="z-index:${50 + i * 10}"></div><div style="position:absolute;inset:0;z-index:${55 + i * 10};pointer-events:none"><div style="position:absolute;inset:0;pointer-events:auto">${{ search: searchSheet, add: addSheet, scan: scanSheet, settings: settingsSheet, note: noteSheet }[k]()}</div></div>`; });
+  if (S.fmenu) over += filterMenu();
+  if (S.confirm) { const b = bookOf(S.confirm); over += `<div class="dlg"><div class="box"><p>Remove ${LQ}${esc(b ? b.title : '')}${RQ} from the shelf?</p><button style="color:var(--red)" data-act="remove-yes" data-t="remove-yes">Remove</button><button style="color:var(--purple)" data-act="remove-no" data-t="remove-no">Cancel</button></div></div>`; }
+  st.innerHTML = `<div class="sbar"><span>9:41</span><span class="bat"></span></div>${body}${over}${S.toast ? `<div class="toast">${esc(S.toast)}</div>` : ''}`;
+  renderStage.keys = {};
+  st.querySelectorAll('[data-keep]').forEach(e => { const k = e.dataset.k; renderStage.keys[k] = 1; e.scrollTop = (prevKeys[k] || k === 'main') ? (scrolls[k] || 0) : 0; });
+  const want = S.focus || inId; S.focus = null;
+  if (want) { const nf = st.querySelector(`[data-in="${want}"]`); if (nf) { nf.focus({ preventScroll: true }); try { if (sel) nf.setSelectionRange(sel[0], sel[1]); else nf.setSelectionRange(nf.value.length, nf.value.length); } catch (e) {} } }
+  markTarget();
+}
+function toast(t) { S.toast = t; renderStage(); clearTimeout(toast.h); toast.h = setTimeout(() => { S.toast = ''; renderStage(); }, 2600); }
+
+/* ---------- Actions inside the pretend iPhone ---------- */
+const stage = document.getElementById('stage');
+const curStack = () => { const top = S.sh[S.sh.length - 1]; if (top === 'search') return S.spath; if (!S.sh.length && S.mode === 'app') return S.path; return null; };
+stage.addEventListener('input', ev => {
+  const k = ev.target.dataset.in; if (!k) return; const v = ev.target.value;
+  if (k === 'search') { S.sq = v; renderStage(); const q = v.trim(), n = q ? findBooks(q).length : 0; emit('search-type', { q, n }); if (q && n === 0) emit('search-none'); }
+  else if (k === 'add-title') { S.add.title = v; S.add.missing = false; renderStage(); if (document.querySelector('#stage [data-t="add-owned"]')) emit('add-owned'); emit('add-typed', v); }
+  else if (k === 'add-author') { S.add.author = v; renderStage(); }
+  else if (k === 'scan') { S.scan.num = v; S.scan.short = false; renderStage(); if (v.replace(/\D/g, '').length >= 10) emit('scan-typed'); }
+  else if (k === 'note') { S.note.text = v; if (v.trim()) emit('note-type'); }
+  else if (k === 'sf-title') S.sf.title = v; else if (k === 'sf-author') S.sf.author = v;
+});
+stage.addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter') return; const k = ev.target.dataset && ev.target.dataset.in; if (!k) return;
+  if (k === 'scan') act('scan-lookup');
+});
+stage.addEventListener('click', ev => {
+  const el = ev.target.closest('[data-act]');
+  if (!el) { let ch = false; if (S.menu) { S.menu = null; ch = true; } if (S.fmenu) { S.fmenu = null; ch = true; } if (S.add.menu) { S.add.menu = false; ch = true; } if (ch) renderStage(); return; }
+  act(el.dataset.act, el.dataset.id, el);
+});
+function popSheet() { const k = S.sh.pop(); if (k === 'search') { S.spath = []; } renderStage(); return k; }
+function act(a, id, el) {
+  if (S.menu && !/^(plusmenu|add-book|open-scan)$/.test(a)) S.menu = null;
+  if (S.fmenu && !/^(fmenu|fopt)$/.test(a)) S.fmenu = null;
+  if (S.add.menu && !/^(where-menu|where-pick)$/.test(a)) S.add.menu = false;
+  if (!/^(open-store)$/.test(a)) S.notice = '';
+  switch (a) {
+    case 'soon': toast('Practice copy: not drawn here.'); break;
+    case 'link': toast('Practice copy: this opens the shop\u2019s page in your browser.'); break;
+    case 'import': toast('Practice copy: the real button opens the file picker.'); emit('import-click'); break;
+    case 'search': S.sh.push('search'); S.sq = ''; S.spath = []; S.focus = 'search'; renderStage(); emit('search-open'); break;
+    case 'search-clear': S.sq = ''; S.focus = 'search'; renderStage(); emit('search-type', { q: '', n: 0 }); break;
+    case 'search-add': S.add = mkAdd(S.sq.trim()); S.sh.push('add'); renderStage(); emit('add-open', 'search'); break;
+    case 'plusmenu': S.menu = S.menu ? null : 'plus'; renderStage(); if (S.menu) emit('plus-menu'); break;
+    case 'add-book': S.menu = null; S.add = mkAdd(''); S.sh.push('add'); S.focus = 'add-title'; renderStage(); emit('add-open', 'plus'); break;
+    case 'open-scan': S.menu = null; S.scan = mkScan(); S.sh.push('scan'); S.focus = 'scan'; renderStage(); emit('scan-open'); break;
+    case 'settings': S.sh.push('settings'); renderStage(); emit('settings-open'); break;
+    case 'sheet-close': { const k = popSheet(); emit(k + '-closed'); break; }
+    case 'back': { const stk = curStack(); if (stk && stk.length) { stk.pop(); S.fmenu = null; renderStage(); } break; }
+    case 'book': { const stk = curStack(); if (!stk) break; stk.push({ t: 'book', id }); renderStage(); emit('book', id); break; }
+    case 'whatnext': S.path.push({ t: 'book', id }); renderStage(); emit('book', id); break;
+    case 'another': S.wn++; renderStage(); emit('another', S.wn); break;
+    case 'shelf': S.path.push({ t: 'shelf', id }); S.fil = { store: null, kind: 'all', order: 'shelf' }; renderStage(); emit('shelf-open', id); break;
+    case 'status': { const b = bookOf(id); b.status = el.dataset.v; b.byHand = true; b.gaveUp = false; renderStage(); emit('status', { id, status: b.status }); break; }
+    case 'gaveup': { const b = bookOf(id); b.gaveUp = true; b.status = 'reading'; b.byHand = true; renderStage(); emit('gaveup', id); break; }
+    case 'pickup': { const b = bookOf(id); b.gaveUp = false; b.byHand = true; renderStage(); emit('pickup', id); break; }
+    case 'open-store': { const b = bookOf(el.dataset.bid); S.notice = id === 'kobo' ? `Kobo is open. Look for ${LQ}${b.title}${RQ} there.` : ''; renderStage(); toast('Practice copy: the real Open starts ' + SNAME[id] + '\u2019s app.'); emit('open-store', id); break; }
+    case 'next-wish': { const b = bookOf(id), nx = nextInSeries(b); addBook(nx.title, b.author, null); S.wishedNext[id] = true; renderStage(); emit('wish-next'); break; }
+    case 'remove': S.confirm = id; renderStage(); emit('remove-ask'); break;
+    case 'remove-no': S.confirm = null; renderStage(); break;
+    case 'remove-yes': { const b = bookOf(S.confirm); b.removed = true; b.wish = false; S.confirm = null; const stk = curStack(); if (stk) stk.pop(); renderStage(); break; }
+    case 'edit-note': { const b = bookOf(id); S.note = { id, stars: b.rating || 0, text: b.note || '' }; S.sh.push('note'); renderStage(); emit('note-open'); break; }
+    case 'star': { const n = +id; S.note.stars = n === S.note.stars ? n - 1 : n; renderStage(); emit('star', n); break; }
+    case 'note-save': { const b = bookOf(S.note.id); b.rating = S.note.stars || null; b.note = S.note.text.trim() || null; const d = { stars: S.note.stars, text: S.note.text }; popSheet(); emit('note-saved', d); break; }
+    case 'where-menu': S.add.menu = !S.add.menu; renderStage(); break;
+    case 'where-pick': S.add.where = id; S.add.menu = false; renderStage(); emit('where', id); break;
+    case 'add-save': {
+      const a = S.add; if (!a.title.trim()) { a.missing = true; renderStage(); emit('add-needs'); break; }
+      addBook(a.title, a.author, a.where === 'wish' ? null : a.where); const d = { where: a.where, title: a.title }; popSheet(); emit('added', d); break; }
+    case 'scan-lookup': {
+      const dg = S.scan.num.replace(/\D/g, ''); if (dg.length !== 10 && dg.length !== 13) { S.scan.short = true; S.scan.res = null; renderStage(); emit('scan-short'); break; }
+      S.scan.short = false; S.scan.added = false; const f = dg.length === 13 && isbn13ok(dg) ? CAT[dg] : null;
+      if (!f) S.scan.res = { kind: 'unknown' };
+      else { const own = ownedMatch(f[0], f[1]); if (own) S.scan.res = { kind: 'owned', book: own }; else if (findBooks(f[0]).some(b => b.wish)) S.scan.res = { kind: 'wished', t: f[0], a: f[1] }; else S.scan.res = { kind: 'new', t: f[0], a: f[1] }; }
+      renderStage(); emit('scan-result', { kind: S.scan.res.kind }); break; }
+    case 'scan-wish': addBook(S.scan.res.t, S.scan.res.a, null); S.scan.added = true; renderStage(); emit('scan-wished'); break;
+    case 'scan-hand': S.add = mkAdd(''); S.sh.push('add'); renderStage(); break;
+    case 'fmenu': S.fmenu = S.fmenu === id ? null : id; S.fmenuTop = 178; renderStage(); if (S.fmenu) emit('fmenu-open'); break;
+    case 'fopt': S.fil[id] = id === 'store' && el.dataset.v === 'null' ? null : el.dataset.v; S.fmenu = null; renderStage(); emit('filter', { k: id, v: el.dataset.v }); break;
+    case 'sf-share': S.sf.phase = 'share'; renderStage(); emit('share-open'); break;
+    case 'sf-close': S.sf.phase = 'page'; renderStage(); break;
+    case 'sf-app': {
+      const p = SFP[S.sf.page], hits = shareMatches(p.title); S.sf.phase = 'card'; S.sf.hits = hits;
+      if (hits.length) S.sf.kind = 'owned'; else { S.sf.kind = 'none'; S.sf.title = p.t; S.sf.author = p.a; }
+      renderStage(); emit('share-result', { kind: S.sf.kind }); break; }
+    case 'sf-add': addBook(S.sf.title, S.sf.author, null); S.sf.phase = 'page'; renderStage(); emit('share-wished'); break;
+  }
+}
+
+/* ---------- Lessons (see, try, check). Every step's setup does a full reset of what that step needs. ---------- */
+const onBook = (id, o) => set(Object.assign({ path: [{ t: 'book', id }] }, o || {}));
+const LESSONS = [
+  { title: 'Your shelf', icon: 'shelf', steps: [
+    { kind: 'look', head: 'One shelf for everything', text: 'AMS Reading Companion keeps one shelf for the books you own in Rakuten Kobo, Apple Books and Amazon Kindle, plus your own files (EPUB and PDF). It shows what you own and where, so you do not buy a book twice. It never takes a store\u2019s lock off a book: a locked book still opens only in its own store\u2019s app.', target: 'shelf-reading', setup: () => set({}) },
+    { kind: 'look', head: 'The shelves, top to bottom', text: 'Each shelf has a heading in its own colour: Reading now (purple), Not read yet (red), one green shelf for each series, Set aside (brown), Lock-free (teal), Audiobooks (amber), Bought twice (pink), Finished and Gave up (grey) and the Wish list (blue). A book can stand on several shelves. Empty shelves are left out, except the Wish list. Above them sits the What next? card (chapter 4).', target: 'shelf-unread', setup: () => set({}) },
+    { kind: 'try', head: 'Open a whole shelf', text: 'Tap the red heading "Not read yet \u00b7 7". A heading with more than three books has a small arrow.', target: 'shelf-unread', setup: () => set({}), wait: 'shelf-open', when: d => d === 'unread', ok: 'All the books of that shelf as a grid, with their titles. The \u2039 at the top left brings you back.' },
+    { kind: 'look', head: 'The store dots', text: 'Under each cover stands one small dot for each store: Kobo red-orange, Kindle blue, Apple Books grey, own file teal. Brass Meridian has a Kobo dot and a Kindle dot, because you own it in both.', target: 'marks-brass', setup: () => set({}) },
+    { kind: 'look', head: 'Lock-free and audiobook marks', text: 'A small open lock (teal) means lock-free. In this version only your own files get it, never a store\u2019s book, even one sold without a lock. Headphones (amber) mean an audiobook. A book without a cover picture is a coloured tile with its title; every book in this practice copy is such a tile. Sending a lock-free book to a reader is done on the Mac.', target: 'marks-recipes', setup: () => set({}) },
+    { kind: 'try', head: 'Where the lists come from', text: 'The Mac reads your lists from Apple Books, Kobo and Kindle each time the app opens there, and when you press Refresh in Settings. An iPhone cannot read the stores: it shows the same shelf through iCloud. Open Settings with the cog at the top right.', target: 'settings', setup: () => set({}), wait: 'settings-open', ok: 'Under Book lists each store says how many books it gave and when. Done closes Settings.' },
+    { kind: 'check', head: 'Quick check', text: 'Your iPhone cannot read Kobo, Kindle or Apple Books. How do their books get onto its shelf?', answers: ['The Mac reads the lists and the iPhone shows the same shelf through iCloud', 'The iPhone asks each store by itself', 'You type every book in by hand'], right: 0, ok: 'Right. After buying a book, open the store\u2019s Mac app once so it syncs, then open the app on the Mac.' },
+  ]},
+  { title: 'A book\u2019s page', icon: 'doc', steps: [
+    { kind: 'try', head: 'Open a book', text: 'Tap the cover of "Salt and Signal" under Reading now.', target: 'cv-salt', setup: () => set({}), wait: 'book', when: d => d === 'salt', ok: 'The book\u2019s page opens. The \u2039 My Books at the top left brings you back.' },
+    { kind: 'look', head: 'The page, top to bottom', text: 'At the top: cover, title, author, the series and number if there is one, and a dot for each store. Under that the three reading choices, your stars and note (chapter 6), and below them each store the book is in, as ebook, audiobook or PDF, with the day you bought it.', target: 'stores', setup: () => onBook('salt') },
+    { kind: 'try', head: 'Reading status', text: 'This book is Not read. Tap "Reading".', target: 'status-reading', setup: () => onBook('ember'), wait: 'status', when: d => d.status === 'reading', ok: 'It starts from the store (Apple Books and Kobo report your progress, Kindle does not). Once you tap one yourself, your choice stays. Go back and Ember Road now stands under Reading now.' },
+    { kind: 'try', head: 'Open in the store', text: 'Press the purple "Open" button beside the Kobo line.', target: 'open-kobo', setup: () => onBook('salt'), wait: 'open-store', ok: 'On your iPhone this starts the store\u2019s app at the book. If it cannot jump to the book it just opens the app and you look for the title. Known to work: Kindle on the Mac. Apple Books, Kobo and opening from the iPhone are not proven yet.' },
+    { kind: 'look', head: 'Owned twice', text: 'Brass Meridian is in Kobo and in Kindle, both as ebooks, so the page says "Owned twice" in red and the book also stands on the pink Bought twice shelf. An ebook plus its own audiobook is not "twice". Two entries are one book when title and author match, ignoring capitals, accents, a subtitle after a colon and a leading "The".', target: 'owned-twice', setup: () => onBook('brass') },
+    { kind: 'check', head: 'Quick check', text: 'Winter Lighthouse is an ebook in Kobo and the same book as an audiobook in Apple Books. Is it owned twice?', answers: ['Yes, it is in two stores', 'No: an ebook and its audiobook are not twice', 'Only if you have opened both'], right: 1, ok: 'Right. "Twice" means the same kind (two ebooks, or two audiobooks) in two stores.' },
+  ]},
+  { title: 'Before you buy', icon: 'tag', steps: [
+    { kind: 'try', head: 'Do I own it?', text: 'Tap the magnifier, then type "brass". The search finds a word in a title, an author, a series or your own note.', target: 'open-search', setup: () => set({}), wait: 'search-type', when: d => /brass/i.test(d.q) && d.n > 0, on: { 'search-open': 'search-field' }, ok: 'It says "You own 1 matching book." and shows it with its stores: a Kobo dot and a Kindle dot. Tap a result to open the book. This is the check to make before you buy.' },
+    { kind: 'try', head: 'When it is not there', text: 'Type "Moon Garden", a book you do not own. Then press the blue button.', target: 'search-field', setup: () => set({ sh: ['search'], focus: 'search' }), wait: 'add-open', on: { 'search-none': 'search-add' }, ok: 'The text says "Not on your shelf." and the button opens the Add a book page with the title already filled in.' },
+    { kind: 'try', head: 'Add a book', text: 'Leave "Where" on Wish list and press the blue Save. Where can also be Kindle, Kobo, Apple Books or Own file, for a book you already have. If you already own the title, the page tells you in red first and names the store. Cancel closes it with nothing saved; on the Mac Escape is Cancel.', target: 'add-save', setup: () => set({ sq: 'Moon Garden', sh: ['search', 'add'], add: mkAdd('Moon Garden') }), wait: 'added', when: d => d.where === 'wish', ok: 'It is on the blue Wish list and the page closes. A wished book moves to the shelf by itself when a store\u2019s list later brings it.' },
+    { kind: 'try', head: 'In a shop: scan a barcode', text: 'On an iPhone or iPad the plus offers two ways in: Add a book, or Scan a barcode. Tap the plus, choose "Scan a barcode". The real page shows a live camera; here type this number instead: 9781000000023, then press "Look up".', target: 'add-menu', setup: () => set({}), wait: 'scan-result', on: { 'plus-menu': 'open-scan', 'scan-open': 'scan-number', 'scan-typed': 'scan-lookup' },
+      ok: d => ({ new: 'It says "Not on your shelf" with the title and author, and a button "Add to wish list". Try 9781000000016 (a book you own) or 9781000000030 (already wished) too.', owned: 'It says "You own this" with the book and its stores.', wished: 'It says "Already on your wish list".', unknown: 'A number the catalogue does not know says "This number is not in the book catalogue." and offers "Add by hand".' }[d.kind]) },
+    { kind: 'try', head: 'Share a web page', text: 'You are looking at a book on a web shop. Tap the Share button at the bottom, then choose "AMS Reading" in the row of apps. (This small Share sheet is a pretend one.)', target: 'sf-share', setup: () => set({ mode: 'safari', sf: { page: 'A', phase: 'page', title: '', author: '', kind: '', hits: [] } }), wait: 'share-result', when: d => d.kind === 'owned', on: { 'share-open': 'sf-app' }, ok: 'A small card says "You own this" with the title and where: in Kobo. The app matches the page\u2019s title against your shelf. Done closes it.' },
+    { kind: 'try', head: 'Share a book you do not own', text: 'A page for a book that is not on your shelf. Share it to AMS Reading, then press "Add to wish list".', target: 'sf-share', setup: () => set({ mode: 'safari', sf: { page: 'B', phase: 'page', title: '', author: '', kind: '', hits: [] } }), wait: 'share-wished', on: { 'share-open': 'sf-app', 'share-result': 'share-add' }, ok: 'The card closes and the book is on your Wish list. The card reads the title and author from the page and lets you correct them first.' },
+    { kind: 'check', head: 'Quick check', text: 'You scan a book that is already on your Wish list. What does the page say?', answers: ['You own this', 'Already on your wish list', 'Not on your shelf'], right: 1, ok: 'Right. "You own this" is only for books on your shelf; "Not on your shelf" comes with a button to wish for it.' },
+  ]},
+  { title: 'What to read', icon: 'compass', steps: [
+    { kind: 'look', head: 'The What next? card', text: 'Above the shelves one suggestion waits. First comes the next book of a series whose earlier book you finished, then your newest purchase, then the books that have waited longest. Only books on your shelf that you have not read yet.', target: 'whatnext', setup: () => set({}) },
+    { kind: 'try', head: 'Another idea', text: 'Press "Another" at the right of the card.', target: 'whatnext-another', setup: () => set({}), wait: 'another', ok: 'The next idea, with its reason ("Your newest book", "Waiting since September 2026"). After the last one it starts over.' },
+    { kind: 'try', head: 'Take the idea', text: 'Tap the card itself.', target: 'whatnext', setup: () => set({}), wait: 'book', when: d => d === 'beyond', ok: 'The book\u2019s page opens: Beyond Harrow, book 2, suggested because you finished book 1.' },
+    { kind: 'try', head: 'Next in the series', text: 'On a book\u2019s page, "Next in the series" shows the book that follows. When it is on your shelf you can open it. Tap it.', target: 'next-owned', setup: () => onBook('harrow'), wait: 'book', when: d => d === 'beyond', ok: 'Book 2 opens. The line said "On your shelf \u00b7 not read".' },
+    { kind: 'try', head: 'A book you do not have', text: 'Here the next book, "The Salt Lamp", is not on your shelf. Press "Add to wish list".', target: 'next-add-wish', setup: () => onBook('ash'), wait: 'wish-next', ok: 'It says "Added to your wish list." The app knew the next title because a book catalogue told it how the series goes.' },
+    { kind: 'try', head: 'A series shelf', text: 'Tap the green heading "The Lantern Cycle".', target: 'shelf-series-the-lantern-cycle', setup: () => set({}), wait: 'shelf-open', when: d => /lantern/.test(d), ok: 'The note reads "3 of 5 \u00b7 missing 3 and 5": you own books 1, 2 and 4 of five. Where the app does not know how long a series is, it only says "3 owned \u00b7 missing 3", because gaps are known only below your highest number.' },
+    { kind: 'check', head: 'Quick check', text: 'You own books 1, 2 and 4 of a series, and the app has not found out how long the series is. What does the shelf note say?', answers: ['3 of 5 \u00b7 missing 3 and 5', '3 owned \u00b7 missing 3', '3 owned \u00b7 complete'], right: 1, ok: 'Right. Gaps are only known below the highest number you own.' },
+  ]},
+  { title: 'Books you left', icon: 'moon', steps: [
+    { kind: 'look', head: 'Reading now or Set aside', text: 'Reading now holds started books you opened lately: within 90 days before your latest reading. A started book left alone longer moves to the brown Set aside shelf, with its count. A book you set to Reading yourself always stays on Reading now.', target: 'shelf-aside', setup: () => set({}) },
+    { kind: 'try', head: 'Open a set-aside book', text: 'Tap the cover of "Letters from Low Tide" on the Set aside shelf.', target: 'cv-letters', setup: () => set({}), wait: 'book', when: d => d === 'letters', ok: 'Its page opens. The store said Reading, but it has not been opened for months.' },
+    { kind: 'try', head: 'Pick it up again', text: 'Tap "Reading". You choose it yourself now.', target: 'status-reading', setup: () => onBook('letters'), wait: 'status', when: d => d.status === 'reading', ok: 'From now on it counts as read by you, so it goes back to Reading now, however long since you opened it.' },
+    { kind: 'try', head: 'Gave up on it', text: 'A book you will not finish: tap "Gave up on it", under the reading choices.', target: 'gave-up', setup: () => onBook('orchard'), wait: 'gaveup', ok: 'It leaves Set aside and stands on the grey Gave up shelf. Its status stays Reading underneath.' },
+    { kind: 'try', head: 'Change your mind', text: 'The page now says "You gave this one up." Tap "Pick it up again".', target: 'pick-up', setup: () => onBook('almanac'), wait: 'pickup', ok: 'It leaves Gave up and goes back to Reading now, because you set it yourself.' },
+    { kind: 'check', head: 'Quick check', text: 'You press "Gave up on it" on a book you started. Where does it stand now?', answers: ['On the grey Gave up shelf', 'It is removed from your shelf', 'On the Finished shelf'], right: 0, ok: 'Right. It is not deleted: you can pick it up again at any time.' },
+  ]},
+  { title: 'Make it yours', icon: 'pen', steps: [
+    { kind: 'look', head: 'Your stars and note', text: 'Every book page has Your stars and note: up to five stars and one line, only yours. This book has five stars and a note.', target: 'stars-note', setup: () => onBook('birds') },
+    { kind: 'try', head: 'Edit', text: 'This book has no stars yet. Press "Edit".', target: 'note-edit', setup: () => onBook('knots'), wait: 'note-open', ok: 'A page of its own opens with Cancel at the top left and Save at the top right.' },
+    { kind: 'try', head: 'Stars, note, Save', text: 'Tap the fourth star, type a short note, then press "Save". Cancel (on the Mac also Escape) would close the page with nothing saved. Tapping the last filled star takes one star away.', target: 'star-4', setup: () => onBook('knots', { sh: ['note'], note: { id: 'knots', stars: 0, text: '' } }), wait: 'note-saved', when: d => d.stars > 0 && d.text.trim().length > 0, on: { star: 'note-text', 'note-type': 'note-save' }, ok: 'The stars and the note are on the book\u2019s page.' },
+    { kind: 'try', head: 'Search finds your notes', text: 'Open the search and type "tern", a word from a note in Field Notes on Tidewater Birds.', target: 'search-field', setup: () => set({ sh: ['search'], focus: 'search' }), wait: 'search-type', when: d => /tern/i.test(d.q) && d.n >= 1, ok: 'The book turns up, because search looks in your note as well as in title, author and series.' },
+    { kind: 'try', head: 'Sort and filter a shelf', text: 'This is the page of the Finished shelf. Press the middle menu, "Read or listen", and choose "To listen".', target: 'filter-kind', setup: () => set({ path: [{ t: 'shelf', id: 'finished' }] }), wait: 'filter', when: d => d.k === 'kind' && d.v === 'listen', on: { 'fmenu-open': 'fopt-kind-listen' }, ok: 'It says "Showing 2 of 5." There are three menus: one store, to read or to listen, and the order (shelf order, by title, by author, newest first). They start plain each time you open a shelf.' },
+    { kind: 'try', head: 'Where to buy', text: 'Tap the cover of "The Clockmaker\u2019s Weather" on the blue Wish list at the bottom.', target: 'cv-w1', setup: () => set({}), wait: 'book', when: d => d === 'w1', ok: 'A wished book has Where to buy: Apple Books\u2019 price in Sweden, when Apple Books has the title, and "Look on Kobo" and "Look on Kindle". Those two open the shop\u2019s search page in your browser, because Kobo and Kindle do not let an app read their prices.' },
+    { kind: 'check', head: 'Quick check', text: 'You open the note page, change the stars, and press Cancel. What happens?', answers: ['The new stars are saved anyway', 'Nothing is saved', 'The note is deleted'], right: 1, ok: 'Right. Every page where you change something has Cancel and Save.' },
+  ]},
+  { title: 'On your real devices', icon: 'phone', steps: [
+    { kind: 'look', head: 'Install it', text: 'Install AMS Reading Companion from TestFlight on each device you want it on: iPhone, iPad and the Mac. They share one shelf, kept as a file in the app\u2019s iCloud Drive folder, so iCloud Drive must be on. A safety copy is kept on each device once a day, 14 days back.', target: 'shelf-reading', setup: () => set({}) },
+    { kind: 'look', head: 'On the Mac, once', text: 'Open the app on the Mac. It reads the Apple Books list from the Books app, and the first time it asks to read your book lists: press Allow. After that it reads them each time it opens, and when you press Refresh in Settings. Apple Books and Kobo lists are the truth: a book that leaves a list leaves your shelf at the next read, and an empty list removes nothing.', target: 'row-apple', setup: () => set({ sh: ['settings'] }) },
+    { kind: 'look', head: 'Kobo', text: 'Kobo\u2019s Mac app must be installed and signed in, and given time to sync. The Mac reads your Kobo list from it. After buying a book, open the Kobo app on the Mac once, then open Reading Companion.', target: 'row-kobo', setup: () => set({ sh: ['settings'] }) },
+    { kind: 'look', head: 'Kindle', text: 'The Kindle Mac app keeps only a small list, not your library. Built-in dictionaries and entries with no purchase day are left out. Your whole Kindle library comes in from Amazon\u2019s page "Manage Your Content and Devices" (Books): save that page as a PDF, then use Settings \u203a Import Kindle list. A CSV or JSON list also works, and so does Add a book by hand. Kindle books are never removed by themselves.', target: 'import-kindle', setup: () => set({ sh: ['settings'] }) },
+    { kind: 'look', head: 'Not proven yet', text: 'Still to be seen on your real shelf: the Kobo list against your real Kobo library, Open for Apple Books and Kobo, opening from the iPhone and iPad, and the three Send buttons for lock-free books (Mac only) from start to end. Version 0.3 is new, so look at its new parts on your real books too.', target: 'sheet-done', setup: () => set({ sh: ['settings'] }) },
+    { kind: 'check', head: 'Quick check', text: 'The Kindle app on your Mac lists only a few books. How does your whole Kindle library get onto the shelf?', answers: ['Save Amazon\u2019s "Manage Your Content and Devices" page as a PDF and import it in Settings', 'Press Refresh until it appears', 'It appears by itself after a day'], right: 0, ok: 'Right. Refresh only reads what the Kindle Mac app itself holds.' },
+  ]},
+];
+
+/* ---------- Tour engine (reusable) ---------- */
+let ci = 0, si = 0, solved = false, targetOff = false;
+const store = { get(k) { try { return localStorage.getItem(k) } catch { return null } }, set(k, v) { try { localStorage.setItem(k, v) } catch {} } };
+let doneChapters = new Set(JSON.parse(store.get('readingtour-done') || '[]'));
+
+function emit(name, data) {
+  const st = LESSONS[ci]?.steps[si]; if (!st || solved || st.kind !== 'try') return;
+  if (st.on && st.on[name]) { markTarget(st.on[name]); }
+  if ((st.wait === name || st.alt === name) && (!st.when || st.when(data))) succeed(typeof st.ok === 'function' ? st.ok(data) : st.ok);
+}
+function succeed(msg) {
+  solved = true; targetOff = true; const fb = document.getElementById('fb'); if (fb) { fb.textContent = '\u2713 ' + msg; fb.className = 'feedback'; }
+  const nx = document.getElementById('next'); if (nx) { nx.disabled = false; nx.focus({ preventScroll: true }); }
+  markTarget();
+}
+let curTarget = null;
+function markTarget(t) {
+  if (t !== undefined) curTarget = t;
+  document.querySelectorAll('.target').forEach(e => e.classList.remove('target'));
+  if (!curTarget || targetOff) return;
+  const sheets = document.querySelectorAll('#stage .sheet'), scope = sheets.length ? sheets[sheets.length - 1] : document.getElementById('stage');
+  const q = n => scope.querySelector(`[data-t="${CSS.escape(n)}"]`);
+  // If the thing to tap is out of sight (a stray press opened or closed a page), point at the step's own first target, else at the way back.
+  const first = LESSONS[ci] && LESSONS[ci].steps[si] && LESSONS[ci].steps[si].target;
+  const el = q(curTarget) || (first && first !== curTarget ? q(first) : null) || scope.querySelector('[data-back]') || scope.querySelector('[data-close]');
+  if (el) {
+    el.classList.add('target');
+    const k = document.getElementById('stagebox').clientWidth / 390;
+    const hr = el.closest('.hrow'); if (hr) { const r = el.getBoundingClientRect(), s = hr.getBoundingClientRect(); if (r.left < s.left || r.right > s.right) hr.scrollLeft += (r.left - s.left - 12 * k) / k; }
+    const sc = el.closest('.scr');
+    if (sc) { const r = el.getBoundingClientRect(), s = sc.getBoundingClientRect();
+      if (r.top < s.top + 96 * k || r.bottom > s.bottom - 30 * k) sc.scrollTop += (r.top - s.top - 130 * k) / k; }
+  }
+}
+function renderRail() {
+  const total = LESSONS.reduce((n, l) => n + l.steps.length, 0);
+  const before = LESSONS.slice(0, ci).reduce((n, l) => n + l.steps.length, 0) + si;
+  document.getElementById('rail').innerHTML = `<div class="brand"><span class="logo">${icon('book')}</span><div><h1>Reading Companion Tour</h1><small>Learn the app in about 15 minutes</small></div></div>
+    ${LESSONS.map((l, i) => `<button class="chap ${i === ci ? 'cur' : ''} ${doneChapters.has(i) ? 'done' : ''}" data-ch="${i}">${icon(l.icon)}<span>${l.title}</span><span class="n">${doneChapters.has(i) ? '\u2713' : l.steps.length + ' steps'}</span></button>`).join('')}
+    <button class="chap ${ci === LESSONS.length ? 'cur' : ''}" data-ch="${LESSONS.length}">${icon('check')}<span>Now on your devices</span></button>
+    <div class="bar"><i style="width:${Math.round(100 * Math.min(before, total) / total)}%"></i></div>
+    <p class="railnote">Practice copy with made-up books. Based on AMS Reading Companion 0.3.</p>`;
+}
+document.getElementById('rail').addEventListener('click', e => { const b = e.target.closest('[data-ch]'); if (b) goChapter(+b.dataset.ch); });
+
+function goChapter(i) {
+  ci = i; si = 0; clearTimers(); S = START();
+  renderStep();
+}
+function renderStep() {
+  renderRail();
+  const coach = document.getElementById('coach'), fin = document.getElementById('finish');
+  if (ci >= LESSONS.length) { renderFinish(); coach.hidden = true; return; }
+  coach.hidden = false; fin.hidden = true;
+  const L = LESSONS[ci], st = L.steps[si];
+  solved = st.kind === 'look'; targetOff = false;
+  S = START(); if (st.setup) st.setup();
+  S.toast = ''; renderStage.scrolls = {}; renderStage.keys = {};
+  const kindName = { look: 'Look', try: 'Try it', check: 'Check' }[st.kind];
+  coach.innerHTML = `<div class="eyebrow">${icon(L.icon)} ${esc(L.title)} <span class="kind">\u00b7 ${kindName} \u00b7 step ${si + 1} of ${L.steps.length}</span></div>
+    <div><h2>${esc(st.head)}</h2><p>${esc(st.text)}</p>${st.hint ? `<p style="color:var(--muted);font-size:13px">${esc(st.hint)}</p>` : ''}</div>
+    <div class="btns">${ci + si > 0 ? '<button class="btn ghost" id="back">Back</button>' : ''}<button class="btn main-b" id="next" ${solved ? '' : 'disabled'}>${si === L.steps.length - 1 ? 'Finish chapter' : 'Next'}</button></div>
+    ${st.kind === 'check' ? `<div class="answers">${st.answers.map((a, i) => `<button class="ans" data-a="${i}">${esc(a)}</button>`).join('')}</div>` : ''}
+    <p class="feedback" id="fb"></p>`;
+  curTarget = st.target || null;
+  renderStage();
+  if (st.kind === 'check') coach.querySelectorAll('.ans').forEach(b => b.onclick = () => {
+    const fb = document.getElementById('fb');
+    if (+b.dataset.a === st.right) { coach.querySelectorAll('.ans').forEach(x => x.disabled = true); b.classList.add('right'); succeed(st.ok); }
+    else { b.classList.add('wrong'); fb.textContent = 'Not quite. Try another answer.'; fb.className = 'feedback no'; }
+  });
+  document.getElementById('next').onclick = next;
+  const bk2 = document.getElementById('back'); if (bk2) bk2.onclick = back;
+}
+function next() {
+  const L = LESSONS[ci];
+  if (si < L.steps.length - 1) { si++; renderStep(); return; }
+  doneChapters.add(ci); store.set('readingtour-done', JSON.stringify([...doneChapters]));
+  goChapter(ci + 1);
+}
+function back() { if (si > 0) { si--; renderStep(); } else if (ci > 0) { ci--; si = LESSONS[ci].steps.length - 1; renderStep(); } }
+
+function renderFinish() {
+  const fin = document.getElementById('finish'); fin.hidden = false;
+  clearTimers(); S = START(); curTarget = null; renderStage();
+  const items = ['Install AMS Reading Companion from TestFlight on your iPhone (and iPad and Mac if you use them). Check that iCloud Drive is on.',
+    'On the Mac, open the app once and press Allow when it asks to read your book lists. Open Settings and check that Apple Books, Kindle and Kobo each say how many books they found.',
+    'Open Kobo\u2019s Mac app, sign in and let it sync. Then open Reading Companion on the Mac and press Refresh in Settings.',
+    'Save Amazon\u2019s page "Manage Your Content and Devices" (Books) as a PDF, then use Settings \u203a Import Kindle list.',
+    'On your iPhone, wait a minute and look at the shelf: the same books should be there.',
+    'Search for a book you know you own, then for one you do not. Tap the plus and try "Scan a barcode" on a real printed book.',
+    'In Safari, open a book\u2019s page in a web shop, tap Share and choose AMS Reading.',
+    'Open one book, press Edit under Your stars and note, give it stars and a line, and press Save.'];
+  let ticks = JSON.parse(store.get('readingtour-real') || '[]');
+  fin.innerHTML = `<h3>Now on your devices</h3>${items.map((t, i) => `<label><input type="checkbox" id="real-${i}" ${ticks.includes(i) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn main-b" id="again">Start the tour again</button></div>`;
+  fin.querySelectorAll('input').forEach((c, i) => c.onchange = () => { ticks = ticks.filter(x => x !== i); if (c.checked) ticks.push(i); store.set('readingtour-real', JSON.stringify(ticks)); });
+  document.getElementById('again').onclick = () => goChapter(0);
+}
+
+/* Fit the 390 x 760 pretend iPhone into its box */
+function fit() { const box = document.getElementById('stagebox'); document.getElementById('stage').style.transform = `scale(${box.clientWidth / 390})`; }
+new ResizeObserver(fit).observe(document.getElementById('stagebox'));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && S.mode === 'app' && S.sh.length) { act('sheet-close'); return; }
+  if (e.key === 'Enter' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') { const n = document.getElementById('next'); if (n && !n.disabled && document.activeElement !== n) n.click(); }
+});
+goChapter(0); fit();
+</script>

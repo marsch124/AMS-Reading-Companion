@@ -30,18 +30,26 @@ public enum SeriesLookup {
     static func sparql(knownTitle: String, author: String) -> String? {
         var title = knownTitle.trimmingCharacters(in: .whitespaces)
         if let r = title.range(of: " (") { title = String(title[..<r.lowerBound]) }   // "Dune (Dune Chronicles #1)"
-        let last = BookMatch.authorKey(author)
-        guard !title.isEmpty, !last.isEmpty, last.count >= 2 else { return nil }
-        let t = title.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        // The author's last name as written (with its accents: the catalogue writes "Läckberg", not "Lackberg").
+        let last = LookupNet.plainAuthor(author).split(separator: " ").last.map { $0.lowercased() } ?? ""
+        guard !title.isEmpty, last.count >= 2 else { return nil }
+        func quoted(_ text: String) -> String {
+            text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        }
+        let t = quoted(title), l = quoted(last)
+        // The owner's book is looked for by its title in English, Swedish or German. Volume titles come back in the
+        // language the title was found in, else in English.
         return """
-        SELECT DISTINCT ?sLabel ?bLabel ?ord WHERE {
-          ?k rdfs:label "\(t)"@en; wdt:P50 ?a. ?a rdfs:label ?al.
-          FILTER(LANG(?al)="en" && CONTAINS(LCASE(?al), "\(last)"))
+        SELECT DISTINCT ?s ?sLabel ?b ?bLabel ?bEn ?ord WHERE {
+          VALUES ?kl { "\(t)"@en "\(t)"@sv "\(t)"@de }
+          ?k rdfs:label ?kl; wdt:P50 ?a. ?a rdfs:label ?al.
+          FILTER(LANG(?al)="en" && CONTAINS(LCASE(?al), "\(l)"))
           ?k wdt:P179 ?s. ?b p:P179 ?bs. ?bs ps:P179 ?s. ?b wdt:P50 ?a.
           FILTER NOT EXISTS { ?b wdt:P50 ?other. FILTER(?other != ?a) }
           OPTIONAL { ?bs pq:P1545 ?ord }
-          ?s rdfs:label ?sLabel. ?b rdfs:label ?bLabel.
-          FILTER(LANG(?sLabel)="en" && LANG(?bLabel)="en")
+          ?s rdfs:label ?sLabel. FILTER(LANG(?sLabel) IN ("en", "sv", "de"))
+          OPTIONAL { ?b rdfs:label ?bLabel. FILTER(LANG(?bLabel) = LANG(?kl)) }
+          OPTIONAL { ?b rdfs:label ?bEn. FILTER(LANG(?bEn) = "en") }
         }
         """
     }
@@ -52,24 +60,41 @@ public enum SeriesLookup {
             .map(String.init).filter { !drop.contains($0) }.joined(separator: " ")
     }
 
-    /// Only a series with the asked-for name counts; several of them (a trilogy inside a bigger series): the biggest.
+    /// The series the owner's book belongs to. A series whose name is the one given wins; when the catalogue
+    /// files the book under exactly one series, that one is taken even under another name (a store's name for a
+    /// series often differs from the catalogue's). A series in which two books share a number is not trusted.
     static func parse(_ data: Data, series: String) -> SeriesFound? {
         guard let rows = (LookupNet.json(data)?["results"] as? [String: Any])?["bindings"] as? [[String: Any]] else { return nil }
         let want = seriesKey(series)
-        guard !want.isEmpty else { return nil }
         func value(_ row: [String: Any], _ key: String) -> String? { (row[key] as? [String: Any])?["value"] as? String }
 
-        var groups: [String: [Double: String]] = [:]
-        var muddled: Set<String> = []                                   // a number given to two books: not trustworthy
+        var books: [String: [Double: String]] = [:]      // series -> number -> which book
+        var titles: [String: [Double: String]] = [:]     // series -> number -> its title
+        var named: Set<String> = []                      // series whose name is the one asked for
+        var muddled: Set<String> = []
         for row in rows {
-            guard let s = value(row, "sLabel"), seriesKey(s) == want,
-                  let b = value(row, "bLabel"), let o = value(row, "ord"), let n = Double(o), n.isFinite, n > 0, n < 1_000_000 else { continue }
-            if let have = groups[s]?[n], have != b { muddled.insert(s); continue }
-            groups[s, default: [:]][n] = b
+            let label = value(row, "sLabel") ?? ""
+            let sid = value(row, "s") ?? label
+            guard !sid.isEmpty else { continue }
+            if !want.isEmpty, seriesKey(label) == want { named.insert(sid) }
+            guard let o = value(row, "ord"), let n = Double(o), n.isFinite, n > 0, n < 1_000_000 else { continue }
+            let title = value(row, "bLabel") ?? value(row, "bEn") ?? ""
+            let bid = value(row, "b") ?? title
+            if let have = books[sid]?[n], have != bid { muddled.insert(sid); continue }
+            books[sid, default: [:]][n] = bid
+            if !title.isEmpty, titles[sid]?[n] == nil || value(row, "bLabel") != nil { titles[sid, default: [:]][n] = title }
         }
-        for s in muddled { groups[s] = nil }
-        guard let best = groups.sorted(by: { ($0.value.count, $1.key) > ($1.value.count, $0.key) }).first?.value, !best.isEmpty else { return nil }
-        let volumes = best.keys.sorted().map { SeriesVolume(number: $0, title: best[$0] ?? "") }
+        for sid in muddled { books[sid] = nil }
+        let chosen: String?
+        if let best = books.filter({ named.contains($0.key) }).sorted(by: { ($0.value.count, $1.key) > ($1.value.count, $0.key) }).first {
+            chosen = best.key
+        } else if named.isEmpty, books.count == 1, muddled.isEmpty {
+            chosen = books.keys.first
+        } else {
+            chosen = nil
+        }
+        guard let sid = chosen, let numbers = books[sid], !numbers.isEmpty else { return nil }
+        let volumes = numbers.keys.sorted().map { SeriesVolume(number: $0, title: titles[sid]?[$0] ?? "") }
         let total = max(volumes.count, Int(volumes.last?.number ?? 0))
         return SeriesFound(total: total, volumes: volumes)
     }
