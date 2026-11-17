@@ -8,10 +8,57 @@ enum Route: Hashable {
     case shelf(String)
 }
 
+/// On a wide screen a tap on a cover does not push a page: it shows the book in the part on the right.
+private struct OpenBookKey: EnvironmentKey {
+    static let defaultValue: ((String) -> Void)? = nil
+}
+
+private struct SelectedBookKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
+extension EnvironmentValues {
+    /// Set on a wide screen: shows a book beside the shelves.
+    var openBook: ((String) -> Void)? {
+        get { self[OpenBookKey.self] }
+        set { self[OpenBookKey.self] = newValue }
+    }
+
+    /// The book shown beside the shelves, so its cover can carry a frame.
+    var selectedBook: String? {
+        get { self[SelectedBookKey.self] }
+        set { self[SelectedBookKey.self] = newValue }
+    }
+}
+
+/// A tap that leads to a book: beside the shelves on a wide screen, else as a page of its own.
+/// `pushes` is for a link that sits on a page which was itself opened without a route (a search result's page).
+struct BookLink<Label: View>: View {
+    @Environment(\.openBook) private var openBook
+    let id: String
+    var pushes = false
+    @ViewBuilder var label: () -> Label
+
+    var body: some View {
+        if let openBook {
+            Button { openBook(id) } label: { label() }
+        } else if pushes {
+            NavigationLink { BookPage(bookID: id) } label: { label() }
+        } else {
+            NavigationLink(value: Route.book(id)) { label() }
+        }
+    }
+}
+
 /// The main screen: the shelves, top to bottom, each a coloured heading over a row of covers that scrolls sideways.
+/// On an iPad and on the Mac, in a window 760 points wide or more, the book that was tapped shows beside them.
 struct RootView: View {
     @EnvironmentObject private var model: ReadingModel
     @State private var path: [Route] = []
+    /// Wide screens: the book shown on the right. Kept while the app is open, not saved.
+    @State private var selected: String?
+
+    static let wideFrom: CGFloat = 760
 
     #if os(macOS)
     private let coverWidth: CGFloat = 92
@@ -20,6 +67,62 @@ struct RootView: View {
     #endif
 
     var body: some View {
+        GeometryReader { window in
+            let wide = window.size.width >= Self.wideFrom
+            HStack(spacing: 0) {
+                shelves
+                    .environment(\.openBook, wide ? { selected = $0 } : nil)
+                    .environment(\.selectedBook, wide ? selected : nil)
+                if wide {
+                    Divider()
+                    bookPane
+                        .frame(width: min(440, max(340, window.size.width * 0.38)))
+                }
+            }
+            .task(id: wide) { settle(wide: wide) }
+        }
+        .sheet(isPresented: $model.settingsShown) { SettingsView() }
+        .sheet(isPresented: $model.searchShown) { SearchView() }
+        .sheet(isPresented: $model.addShown) { AddBookPage() }
+        .sheet(isPresented: $model.scanShown) { ScanView() }
+    }
+
+    /// What a start argument asked for, and on a wide screen a first book on the right so that part is not empty.
+    private func settle(wide: Bool) {
+        if let id = model.startBook {
+            model.startBook = nil
+            if wide { selected = id } else { path = [.book(id)] }
+        }
+        if let id = model.startShelf {
+            model.startShelf = nil
+            path = [.shelf(id)]
+        }
+        if wide, selected == nil {
+            selected = model.data.shelf("reading")?.books.first?.id
+        }
+    }
+
+    /// The right part of a wide screen: the page of the book that was tapped.
+    private var bookPane: some View {
+        Group {
+            if let id = selected, model.data.book(id) != nil {
+                BookPage(bookID: id)
+                    .id(id)
+                    .environment(\.openBook, { selected = $0 })
+            } else {
+                Text("Tap a cover and the book shows here.")
+                    .foregroundStyle(.secondary)
+                    .padding(18)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .accessibilityIdentifier("book-pane-empty")
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("book-pane")
+    }
+
+    private var shelves: some View {
         NavigationStack(path: $path) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
@@ -46,20 +149,6 @@ struct RootView: View {
                 case .book(let id): BookPage(bookID: id)
                 case .shelf(let id): ShelfAllView(shelfID: id)
                 }
-            }
-        }
-        .sheet(isPresented: $model.settingsShown) { SettingsView() }
-        .sheet(isPresented: $model.searchShown) { SearchView() }
-        .sheet(isPresented: $model.addShown) { AddBookPage() }
-        .sheet(isPresented: $model.scanShown) { ScanView() }
-        .onAppear {
-            if let id = model.startBook {
-                model.startBook = nil
-                path = [.book(id)]
-            }
-            if let id = model.startShelf {
-                model.startShelf = nil
-                path = [.shelf(id)]
             }
         }
     }
@@ -187,11 +276,17 @@ struct ShelfRow: View {
 struct BookTile: View {
     let book: Book
     let width: CGFloat
+    @Environment(\.selectedBook) private var chosen
 
     var body: some View {
-        NavigationLink(value: Route.book(book.id)) {
+        BookLink(id: book.id) {
             VStack(alignment: .leading, spacing: 3) {
                 CoverView(book: book, width: width)
+                    // The book shown beside the shelves carries a purple frame.
+                    .overlay(RoundedRectangle(cornerRadius: max(2, width * 0.05) + 2, style: .continuous)
+                        .strokeBorder(Theme.text("purple"), lineWidth: 2)
+                        .padding(-3)
+                        .opacity(chosen == book.id ? 1 : 0))
                 StoreMarks(book: book)
             }
             .contentShape(Rectangle())
@@ -209,7 +304,7 @@ struct WhatNextCard: View {
     var body: some View {
         let idea = ideas[index % ideas.count]
         HStack(alignment: .top, spacing: 10) {
-            NavigationLink(value: Route.book(idea.book.id)) {
+            BookLink(id: idea.book.id) {
                 HStack(alignment: .top, spacing: 10) {
                     CoverView(book: idea.book, width: 50)
                     VStack(alignment: .leading, spacing: 2) {

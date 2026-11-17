@@ -1,4 +1,4 @@
-# AMS Reading Companion — specification, version 0.3 (17 November 2026)
+# AMS Reading Companion — specification, version 0.4 (17 November 2026)
 
 Platforms: iPhone, iPad, Mac.
 
@@ -84,6 +84,17 @@ Platforms: iPhone, iPad, Mac.
 - Three menus: store (`filter-store`: all, Kobo, Kindle, Apple Books, Own file), kind (`filter-kind`: All kinds / To read / To listen), order (`filter-order`: Shelf order / By title / By author / Newest first). They start plain each time the page opens.
 - To read: books with no copies (wishes) or with a non-audio copy. To listen: books with an audiobook copy. By author: author's last name, then title. Newest first: latest purchase date.
 - When not plain: "Showing n of m." (`filter-count`), or "No book of this shelf fits."
+
+### 5.4 Wide layout (iPad and Mac, 0.4)
+- Threshold: the window's width is 760 points or more. Narrower windows (small Mac window, iPad in a narrow split) and the iPhone keep the old behaviour: a tap on a cover pushes the book's page, Back returns. Nothing changes on the iPhone.
+- Wide: two parts side by side. Left: the shelves exactly as before (What next? card, coloured headings, rows of covers, the three buttons at the top). Right: the book's page (section 9) without leaving the shelves, in a part `book-pane`. Its width is 38 % of the window's width, at least 340 and at most 440 points.
+- A tap on a cover selects that book and shows it on the right; a tap on another cover changes it. The selected cover has a purple frame.
+- When the app opens, the first book of Reading now is selected. If there is none, the right part shows the line "Tap a cover and the book shows here." (`book-pane-empty`).
+- A tap on a shelf's heading still opens that shelf's page (5, grid with sort and filter) on the left; a tap on a cover there also selects the book on the right. "Next in the series" (9) on the right selects the next book on the right.
+- The selection is kept while the app is open and is not saved. A book that leaves the shelf (for example removed) empties the right part.
+- Search, Add a book, Scan and Settings are unchanged (sheets). A book opened from Search still opens inside the Search sheet.
+- Identifiers: `book-pane` (the right part), `book-pane-empty` (the line shown when no book is chosen).
+- No change to the data: file format stays 2; no new lookups.
 
 ## 6. Cover marks
 - Dots per store: Kobo red-orange, Kindle blue, Apple Books grey, own file teal.
@@ -178,6 +189,7 @@ All requests: 8 seconds time limit; an error or any doubt gives "nothing", never
 - Kobo list against the real Kobo library.
 - Share check on a real iPhone.
 - Camera scan on a real iPhone.
+- The wide layout on a real iPad.
 - Open buttons on iPhone (Apple Books, Kobo; and all opening on iPhone and iPad).
 - Sending lock-free books (Open in Apple Books, Send to Kobo, Send to Kindle) end to end.
 
@@ -191,3 +203,4 @@ All requests: 8 seconds time limit; an error or any doubt gives "nothing", never
 - 0.1 (17 Nov 2026): first version.
 - 0.2 (17 Nov 2026): fix. Built-in Kindle entries left out (16 entries became 2); samples and built-in items marked later leave the shelf; honest Kindle count in Settings.
 - 0.3 (17 Nov 2026): What next? card; shelves Set aside (72 started books leave Not read yet), Bought twice (7), Gave up; own stars and note; Next in the series; series note "3 of 7" from a public catalogue; covers by title and author; sort and filter on a shelf page; Share check and barcode scan (iPhone and iPad); wish-list prices; Kindle list from Amazon's page saved as PDF; no second copy of a store from a repeated list file; file format 2.
+- 0.4 (17 Nov 2026): wide layout on iPad and Mac (window 760 points or more): shelves on the left, the chosen book's page on the right (38 % of the width, 340 to 440 points); narrow windows and iPhone unchanged; identifiers `book-pane`, `book-pane-empty`; no data change.

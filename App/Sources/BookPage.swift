@@ -200,9 +200,7 @@ struct BookPage: View {
                 .font(.headline)
                 .foregroundStyle(Theme.text("green"))
             if let have = next.owned {
-                NavigationLink {
-                    BookPage(bookID: have.id)
-                } label: {
+                BookLink(id: have.id, pushes: true) {
                     HStack(spacing: 8) {
                         CoverView(book: have, width: 34)
                         VStack(alignment: .leading, spacing: 1) {

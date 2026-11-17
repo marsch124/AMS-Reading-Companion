@@ -65,6 +65,15 @@ enum Guide {
             "Bought twice (pink): every book you own to read, or to listen to, in two stores, for example Kindle and Apple Books. Your own files do not count.",
             "Finished (grey): most recent first. Gave up (grey): books you started and gave up on. Wish list (blue): always shown.",
             "Tap a shelf's heading to see all its books in a grid. There you can narrow the books down and put them in another order (see Sort and filter).",
+            "On iPhone, a tap on a cover opens the book's page and Back returns to the shelves. On iPad and Mac with a wide window the book shows beside the shelves (see On iPad and Mac).",
+        ]),
+        Part(title: "On iPad and Mac", text: [
+            "When the window is wide (760 points or more), the screen has two parts side by side. Left: the shelves, with the What next? card, the coloured headings, the rows of covers and the buttons at the top. Right: the page of the book you tapped.",
+            "Tap a cover and the right part shows that book. Tap another cover and it changes. The chosen cover has a purple frame. You never leave the shelves.",
+            "When the app opens, the first book of Reading now is shown on the right. If there is none, the right part says “Tap a cover and the book shows here.”",
+            "Tap a shelf's heading and that shelf's page (the grid with sort and filter) opens on the left. A tap on a cover there also shows the book on the right. “Next in the series” on the right shows the next book on the right.",
+            "A narrow window (under 760 points, such as a small Mac window or an iPad in a narrow split) works like the iPhone: a tap on a cover opens the book's page, and Back returns.",
+            "Search, Add a book, Scan and Settings open as pages over the screen, as before. A book you open from Search opens inside the Search page.",
         ]),
         Part(title: "What next?", text: [
             "A card above the shelves gives one idea for your next book. It looks at books you own and have not started.",
@@ -102,6 +111,7 @@ enum Guide {
             "This is not on the Mac. It has not been tried on a real iPhone yet.",
         ]),
         Part(title: "A book's page", text: [
+            "On iPhone, and in a narrow window, you reach this page with a tap on a cover. In a wide window on iPad or Mac it shows on the right, beside the shelves.",
             "The page shows the cover, the title, the author, the series and number, each store the book is in, and when you bought it.",
             "Reading status: Not read, Reading or Finished. It is first taken from the store: Apple Books and Kobo report your progress, Kindle does not. Once you set it by hand, your choice stays.",
             "On the page of a book you started, “Gave up on it” moves it from Set aside (or Reading now) to Gave up. “Pick it up again” brings it back.",
@@ -158,6 +168,13 @@ enum Guide {
     ]
 
     static let news: [Release] = [
+        Release(version: "0.4", date: "17 November 2026", items: [
+            "Changed on iPad and Mac: the shelves and the book now stand side by side. Before, iPad and Mac showed the iPhone screen stretched: a tap on a cover replaced the shelves with the book's page, and Back brought the shelves back. Now, when the window is wide (760 points or more), the screen has two parts. Left: the shelves exactly as before. Right: the page of the book you tapped, without leaving the shelves.",
+            "New: tap another cover and the right part changes to that book. The chosen cover has a purple frame. When the app opens, the first book of Reading now is shown on the right. If there is none, the right part says “Tap a cover and the book shows here.”",
+            "Changed: a tap on a shelf's heading still opens that shelf's page (grid with sort and filter) on the left. A tap on a cover there also shows the book on the right. “Next in the series” on the right shows the next book on the right.",
+            "Unchanged: a narrow window (under 760 points, such as a small Mac window or an iPad in a narrow split) and the iPhone work exactly as before. Search, Add a book, Scan and Settings are unchanged, and a book opened from Search still opens inside the Search sheet.",
+            "Not changed: the shelf file (still format 2) and the lookups. Not tried yet: the two parts on a real iPad.",
+        ]),
         Release(version: "0.3", date: "17 November 2026", items: [
             "New: a “What next?” card above the shelves. Before, nothing suggested a book. Now it gives one idea: the next book of a series whose earlier book you finished, then your newest book, then the ones that have waited longest. “Another” shows the next idea.",
             "New: the shelf “Set aside”. Before, books you started but did not open for a long time stood under Not read yet (72 such books on your shelf). Now books you have not opened in the 90 days before your latest reading stand under Set aside, and Not read yet holds only books you have not started.",
