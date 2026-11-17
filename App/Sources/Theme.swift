@@ -132,6 +132,7 @@ struct CoverView: View {
                     Text(book.title)
                         .font(.system(size: max(9, width * 0.13), weight: .semibold))
                         .lineLimit(4)
+                        .minimumScaleFactor(0.6)
                     Text(book.author)
                         .font(.system(size: max(8, width * 0.1)))
                         .lineLimit(2)

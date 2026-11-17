@@ -12,6 +12,8 @@ struct AddBookPage: View {
     @State private var place = "wish"
 
     private let colour = "blue"
+    /// Save was pressed without a title: say so beside the field, instead of a button that cannot be pressed.
+    @State private var titleMissing = false
     private let places: [(String, String)] = [("wish", "Wish list"), ("kindle", "Kindle"), ("kobo", "Kobo"),
                                               ("apple", "Apple Books"), ("own", "Own file")]
 
@@ -38,6 +40,13 @@ struct AddBookPage: View {
                 Section {
                     TextField("Title", text: $title)
                         .accessibilityIdentifier("add-title")
+                        .onChange(of: title) { _, _ in titleMissing = false }
+                    if titleMissing {
+                        Text("Type a title first.")
+                            .font(.footnote)
+                            .foregroundStyle(Theme.text("red"))
+                            .accessibilityIdentifier("add-title-missing")
+                    }
                     TextField("Author", text: $author)
                         .accessibilityIdentifier("add-author")
                     Picker("Where", selection: $place) {
@@ -77,7 +86,6 @@ struct AddBookPage: View {
                     }
                     .buttonStyle(FilledButton(colour: colour))
                     .keyboardShortcut(.defaultAction)
-                    .disabled(trimmedTitle.isEmpty)
                     .accessibilityIdentifier("add-save")
                 }
             }
@@ -89,7 +97,10 @@ struct AddBookPage: View {
     }
 
     private func save() {
-        guard !trimmedTitle.isEmpty else { return }
+        guard !trimmedTitle.isEmpty else {
+            titleMissing = true
+            return
+        }
         model.add(title: trimmedTitle, author: author.trimmingCharacters(in: .whitespacesAndNewlines), store: store)
         dismiss()
     }

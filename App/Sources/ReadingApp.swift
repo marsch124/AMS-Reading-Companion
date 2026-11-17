@@ -14,10 +14,12 @@ struct ReadingApp: App {
 
     var body: some Scene {
         #if os(macOS)
-        Window("AMS Reading Companion", id: "main") {
+        WindowGroup("AMS Reading Companion", id: "main") {
             root.frame(minWidth: 560, minHeight: 460)
         }
         .defaultSize(width: 920, height: 720)
+        // One shelf, one window: no "New Window" in the File menu.
+        .commands { CommandGroup(replacing: .newItem) {} }
         #else
         WindowGroup { root }
         #endif

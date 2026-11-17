@@ -21,6 +21,11 @@ struct SearchView: View {
                 field
                 if !query.isEmpty {
                     if results.isEmpty { none } else { list }
+                } else {
+                    Text("Type a title, an author or a series to see whether you already own it, and in which store.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("search-hint")
                 }
                 Spacer(minLength: 0)
             }

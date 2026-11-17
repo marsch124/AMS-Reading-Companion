@@ -24,4 +24,4 @@ one() {   # one <ios|mac>
     2>&1 | grep -E "error:|EXPORT (SUCCEEDED|FAILED)|Upload" | sort -u
 }
 case "$WHAT" in ios) one ios;; mac) one mac;; *) one ios; one mac;; esac
-echo "Now check GET /v1/apps/APP_ID_TBD/buildUploads for Apple's verdict, then release-to-testers.py."
+echo "Now check GET /v1/apps/6835790639/buildUploads for Apple's verdict, then release-to-testers.py."
