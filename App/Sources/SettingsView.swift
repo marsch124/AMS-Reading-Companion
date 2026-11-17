@@ -47,6 +47,14 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("import-file-note")
                     }
+                    if model.isMac {
+                        // A row, not the footer: the Mac cuts a list footer off after one line.
+                        Text("This Mac reads the lists each time AMS Reading opens. After buying a book, open the store's Mac app once so it knows the book.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("lists-help")
+                    }
                 } header: {
                     Text("Book lists")
                         .font(.subheadline.weight(.bold))
@@ -54,10 +62,10 @@ struct SettingsView: View {
                         .textCase(nil)
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(model.isMac
-                             ? "This Mac reads the lists each time AMS Reading opens. After buying a book, open the store's Mac app once so it knows the book."
-                             : "The lists are read on your Mac and arrive here through iCloud.")
-                            .fixedSize(horizontal: false, vertical: true)
+                        if !model.isMac {
+                            Text("The lists are read on your Mac and arrive here through iCloud.")
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         if !model.cloudOn {
                             Text("iCloud Drive is off on this device, so the shelf stays on this device only.")
                                 .foregroundStyle(Theme.text("red"))
