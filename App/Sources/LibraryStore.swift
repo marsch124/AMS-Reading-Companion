@@ -15,7 +15,16 @@ final class LibraryStore: @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "com.schabbauer.AMSReadingCompanion.store")
     private var cloudFolder: URL?
-    private var cloudAsked = false
+    private var cloudAsked = Date.distantPast
+
+    private enum CloudRead {
+        /// No iCloud here, or no file there yet.
+        case absent
+        /// The file is there but could not be read: never write over it.
+        case unreadable
+        /// The file, with `joined` true when a version iCloud had parked was joined in.
+        case got(LibraryData, joined: Bool)
+    }
 
     private var folder: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -39,13 +48,14 @@ final class LibraryStore: @unchecked Sendable {
     func load() -> LibraryData? {
         queue.sync {
             let local = loadLocal()
-            let cloud = readCloud()
-            switch (local, cloud) {
-            case let (l?, c?): return LibraryData.merged(c, l)
-            case let (l?, nil): return l
-            case let (nil, c?): return c
-            default: return nil
+            guard case let .got(cloud, joined) = readCloud() else { return local }
+            let out = local.map { LibraryData.merged(cloud, $0) } ?? cloud
+            // A parked version was joined in and cleared away: write the joined shelf back at once,
+            // so what it held is not only in memory.
+            if joined, !out.isNewer, !out.books.isEmpty, let bytes = try? out.encoded() {
+                write(bytes, cloud: true)
             }
+            return out
         }
     }
 
@@ -54,28 +64,38 @@ final class LibraryStore: @unchecked Sendable {
         queue.sync {
             guard !mine.books.isEmpty, !mine.isNewer else { return mine }
             var out = mine
-            if let disk = readCloud() {
+            var cloud = true
+            switch readCloud() {
+            case .absent:
+                break
+            case .unreadable:
+                cloud = false
+            case let .got(disk, _):
                 out = LibraryData.merged(disk, mine)
                 if disk.isNewer { return out }
             }
             guard let bytes = try? out.encoded() else { return mine }
-            try? bytes.write(to: localFile, options: .atomic)
-            if let file = cloudFile() {
-                var problem: NSError?
-                NSFileCoordinator().coordinate(writingItemAt: file, options: .forReplacing, error: &problem) { url in
-                    try? bytes.write(to: url, options: .atomic)
-                }
-            }
-            safetyCopy(bytes)
+            write(bytes, cloud: cloud)
             return out
+        }
+    }
+
+    private func write(_ bytes: Data, cloud: Bool) {
+        safetyCopy(fallback: bytes)
+        try? bytes.write(to: localFile, options: .atomic)
+        guard cloud, let file = cloudFile() else { return }
+        var problem: NSError?
+        NSFileCoordinator().coordinate(writingItemAt: file, options: .forReplacing, error: &problem) { url in
+            try? bytes.write(to: url, options: .atomic)
         }
     }
 
     // MARK: iCloud
 
     private func cloudFile() -> URL? {
-        if !cloudAsked {
-            cloudAsked = true
+        // Asked again now and then, so signing in to iCloud later is noticed without restarting the app.
+        if cloudFolder == nil, Date().timeIntervalSince(cloudAsked) > 30 {
+            cloudAsked = Date()
             if let root = FileManager.default.url(forUbiquityContainerIdentifier: Self.container) {
                 let documents = root.appendingPathComponent("Documents", isDirectory: true)
                 try? FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
@@ -85,30 +105,38 @@ final class LibraryStore: @unchecked Sendable {
         return cloudFolder?.appendingPathComponent("library.json")
     }
 
-    private func readCloud() -> LibraryData? {
-        guard let file = cloudFile() else { return nil }
+    private func readCloud() -> CloudRead {
+        guard let file = cloudFile() else { return .absent }
         try? FileManager.default.startDownloadingUbiquitousItem(at: file)
         var result: LibraryData?
+        var there = false
+        var joined = false
         var problem: NSError?
         NSFileCoordinator().coordinate(readingItemAt: file, options: [], error: &problem) { url in
+            there = FileManager.default.fileExists(atPath: url.path)
             if let data = try? Data(contentsOf: url) { result = try? LibraryData.decode(data) }
         }
+        // iCloud may know the file before it has arrived on this device.
+        if !there, (try? file.resourceValues(forKeys: [.isUbiquitousItemKey]).isUbiquitousItem) == true { there = true }
         // What iCloud parked when two devices wrote at the same moment: join it in, then clear it away.
         if let parked = NSFileVersion.unresolvedConflictVersionsOfItem(at: file), !parked.isEmpty {
             for version in parked {
                 if let data = try? Data(contentsOf: version.url), let other = try? LibraryData.decode(data) {
                     result = result.map { LibraryData.merged($0, other) } ?? other
+                    joined = true
                 }
                 version.isResolved = true
             }
             try? NSFileVersion.removeOtherVersionsOfItem(at: file)
         }
-        return result
+        if let result { return .got(result, joined: joined) }
+        return there ? .unreadable : .absent
     }
 
     // MARK: Safety copies
 
-    private func safetyCopy(_ bytes: Data) {
+    /// Once a day, BEFORE the first write of the day: the shelf as it was. On the very first day, the new shelf.
+    private func safetyCopy(fallback bytes: Data) {
         let safety = folder.appendingPathComponent("Safety", isDirectory: true)
         try? FileManager.default.createDirectory(at: safety, withIntermediateDirectories: true)
         let day = DateFormatter()
@@ -116,7 +144,8 @@ final class LibraryStore: @unchecked Sendable {
         day.locale = Locale(identifier: "en_US_POSIX")
         let today = safety.appendingPathComponent("library-\(day.string(from: Date())).json")
         guard !FileManager.default.fileExists(atPath: today.path) else { return }
-        try? bytes.write(to: today, options: .atomic)
+        let before = (try? Data(contentsOf: localFile)) ?? bytes
+        try? before.write(to: today, options: .atomic)
         let all = ((try? FileManager.default.contentsOfDirectory(atPath: safety.path)) ?? [])
             .filter { $0.hasPrefix("library-") }.sorted()
         for old in all.dropLast(14) {

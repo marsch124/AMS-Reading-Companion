@@ -42,7 +42,7 @@ Platforms: iPhone, iPad, Mac.
 ## 5. Main screen
 - List of all shelves: `shelf-list`; each shelf `shelf-<id>`. Heading in its own colour, a row of covers scrolling sideways.
 - Order and colours:
-  1. Reading now (`reading`, purple)
+  1. Reading now (`reading`, purple): status Reading AND (set by hand, OR the store gave no last-opened day, OR last opened within 90 days before the newest last-opened day of any owned book). Other started books count as Not read yet on the shelves; their status stays Reading. On 17 Nov 2026 with real data: 77 started, 5 on this shelf.
   2. Not read yet (`unread`, red), newest purchase first, with count, e.g. "Not read yet · 84"
   3. One shelf per series with 2 or more owned books (`series-<name>`, green), in series order, with a note such as "3 owned · missing 2 and 4". Gaps known only below the highest owned number; total size of a series is unknown.
   4. Lock-free (`lockfree`, teal)

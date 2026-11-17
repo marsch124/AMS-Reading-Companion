@@ -54,7 +54,8 @@ enum Guide {
         ]),
         Part(title: "The shelves", text: [
             "The main screen is a stack of shelves. Each has a heading in its own colour and a row of covers that scrolls sideways. A book can stand on several shelves. Empty shelves are left out, except the Wish list.",
-            "Reading now (purple). Not read yet (red): newest purchase first, with the count, for example “Not read yet · 84”.",
+            "Reading now (purple): the books you opened lately. A book a store says you started, but that you have not opened in the 90 days before your latest reading, stands under Not read yet again. A book you set to Reading yourself always stays here.",
+            "Not read yet (red): newest purchase first, with the count, for example “Not read yet · 84”.",
             "One shelf for each series of which you own two books or more (green), in series order, with a note such as “3 owned · missing 2 and 4”. Gaps are known only below the highest number you own. The app does not know how many books a series has in all.",
             "Lock-free (teal). Audiobooks (amber). Finished (grey): most recent first. Wish list (blue): always shown.",
             "Tap a shelf's heading to see all its books in a grid.",

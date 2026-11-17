@@ -172,7 +172,7 @@ struct BookPage: View {
 
     private func canOpen(_ copy: BookCopy) -> Bool {
         if copy.source == .hand { return false }
-        if copy.store == .own && copy.filePath == nil { return false }
+        if copy.store == .own { return copy.source == .apple }
         return true
     }
 
@@ -182,7 +182,11 @@ struct BookPage: View {
             Text("Send")
                 .font(.headline)
                 .foregroundStyle(Theme.text(colour))
-            if model.canSend {
+            if !book.copies.contains(where: { $0.lockFree && $0.filePath != nil }) {
+                Text("This book was added by hand, so there is no file here to send.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("send-no-file")
+            } else if model.canSend {
                 HStack(spacing: 8) {
                     sendButton("Open in Apple Books", .apple, book)
                     sendButton("Send to Kobo", .kobo, book)

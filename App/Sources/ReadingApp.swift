@@ -30,7 +30,7 @@ struct ReadingApp: App {
             .tint(Theme.text("purple"))
             .onAppear { covers.off = model.sample }
             .onChange(of: phase) { _, now in
-                if now == .active { model.cameForward() }
+                if now == .active { model.cameForward() } else { model.saveNow() }
             }
     }
 }
@@ -61,6 +61,8 @@ final class ReadingModel: ObservableObject {
     let sample: Bool
     private let store = LibraryStore()
     private var saveTask: Task<Void, Never>?
+    /// A change is waiting to be written.
+    private var unsaved = false
     private var lastRead = Date.distantPast
 
     var readOnly: Bool { data.isNewer }
@@ -87,6 +89,11 @@ final class ReadingModel: ObservableObject {
         searchShown = args.contains("-search")
         addShown = args.contains("-add")
         if let i = args.firstIndex(of: "-show"), i + 1 < args.count { startBook = args[i + 1] }
+        #if os(macOS)
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.saveNow(wait: true) }
+        }
+        #endif
         cameForward()
     }
 
@@ -112,13 +119,29 @@ final class ReadingModel: ObservableObject {
         let before = data
         edit(&data)
         guard data != before, !sample else { return }
+        unsaved = true
         saveTask?.cancel()
         saveTask = Task { [store] in
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
             let snapshot = self.data
+            self.unsaved = false
             let written = await Task.detached { store.save(snapshot) }.value
             self.data = LibraryData.merged(self.data, written)
+        }
+    }
+
+    /// The app is leaving the front, or quitting: write a waiting change now, not half a second later.
+    func saveNow(wait: Bool = false) {
+        guard unsaved, !sample, !readOnly else { return }
+        saveTask?.cancel()
+        unsaved = false
+        let snapshot = data
+        let store = self.store
+        if wait {
+            _ = store.save(snapshot)
+        } else {
+            Task.detached { _ = store.save(snapshot) }
         }
     }
 
@@ -161,6 +184,10 @@ final class ReadingModel: ObservableObject {
 
     /// Settings › Import Kindle list: a one-time file with the whole Kindle library.
     func importKindleFile(_ url: URL) {
+        guard !readOnly else {
+            fileNote = "This device has an older version of AMS Reading, so the file cannot be taken in here. Update the app first."
+            return
+        }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         guard let bytes = try? Data(contentsOf: url) else {

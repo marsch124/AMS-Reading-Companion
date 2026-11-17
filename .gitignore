@@ -7,3 +7,4 @@ xcuserdata/
 *.xcresult
 build-ios/
 build-mac/
+build-mac-signed/

@@ -73,11 +73,9 @@ struct AddBookPage: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { save() } label: {
-                        HStack(spacing: 4) { ControlMarkView(.check, size: 18); Text("Save") }
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Theme.text(colour))
-                            .opacity(trimmedTitle.isEmpty ? 0.45 : 1)
+                        HStack(spacing: 4) { ControlMarkView(.check, size: 16, colour: .white); Text("Save") }
                     }
+                    .buttonStyle(FilledButton(colour: colour))
                     .keyboardShortcut(.defaultAction)
                     .disabled(trimmedTitle.isEmpty)
                     .accessibilityIdentifier("add-save")

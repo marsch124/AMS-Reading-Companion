@@ -200,4 +200,36 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(shelves.first { $0.id == "series-the lantern cycle" }?.note, "3 owned · missing 3")
         XCTAssertTrue(LibraryData.sample.books.allSatisfy { $0.coverURL == nil })
     }
+
+    /// A book that left a store's list for a while (a half-loaded store app) and comes back is the same book:
+    /// the status the owner set by hand is still on it, and it stands on the shelf once.
+    func testBookThatLeftAListAndCameBackKeepsItsStatus() {
+        var data = LibraryData()
+        let hill = ImportedBook(store: .kobo, storeID: "k1", title: "The Glass Hill", author: "Ina Marsh")
+        let pond = ImportedBook(store: .kobo, storeID: "k2", title: "Pond Weather", author: "Ina Marsh")
+        data.take([hill, pond], source: .kobo, complete: true)
+        data.setStatus(.finished, of: "kobo:k1")
+        data.take([pond], source: .kobo, complete: true)
+        XCTAssertNil(data.book("kobo:k1"))
+        data.take([hill, pond], source: .kobo, complete: true)
+        XCTAssertEqual(data.book("kobo:k1")?.status, .finished)
+        XCTAssertEqual(data.books.filter { $0.id == "kobo:k1" }.count, 1)
+    }
+
+    /// "Reading now" holds what was opened lately. A book started long ago stands under "Not read yet" again,
+    /// unless the owner himself said he is reading it.
+    func testReadingNowLeavesOutBooksStartedLongAgo() {
+        var data = LibraryData()
+        let day: TimeInterval = 86_400
+        let base = Date(timeIntervalSince1970: 1_790_000_000)
+        data.take([
+            ImportedBook(store: .apple, storeID: "1", title: "Fresh Bread", author: "A Baker", progress: 0.4, lastOpened: base),
+            ImportedBook(store: .apple, storeID: "2", title: "Old Maps", author: "B Chart", progress: 0.3, lastOpened: base - 200 * day),
+            ImportedBook(store: .apple, storeID: "3", title: "Slow River", author: "C Reed", progress: 0.1, lastOpened: base - 300 * day),
+        ], source: .apple, complete: true)
+        data.setStatus(.reading, of: "apple:3")
+        let shelves = data.shelves()
+        XCTAssertEqual(Set(shelves.first { $0.id == "reading" }?.books.map(\.id) ?? []), ["apple:1", "apple:3"])
+        XCTAssertEqual(shelves.first { $0.id == "unread" }?.books.map(\.id), ["apple:2"])
+    }
 }

@@ -67,7 +67,7 @@ extension LibraryData {
     public var shown: [Book] { books.filter { !$0.removed } }
     public var owned: [Book] { shown.filter { !$0.copies.isEmpty } }
 
-    public func book(_ id: String) -> Book? { books.first { $0.id == id } }
+    public func book(_ id: String) -> Book? { books.first { $0.id == id && !$0.removed } }
 
     // MARK: Taking in a store's list
 
@@ -77,6 +77,7 @@ extension LibraryData {
     @discardableResult
     public mutating func take(_ imported: [ImportedBook], source: CopySource, complete: Bool, now: Date = Date()) -> ImportSummary {
         var summary = ImportSummary()
+        let now = now.wholeSeconds
         let items = imported.filter { !$0.isSample && !$0.title.trimmingCharacters(in: .whitespaces).isEmpty }
         summary.samples = imported.count - items.count
         guard !items.isEmpty else { return summary }
@@ -84,7 +85,7 @@ extension LibraryData {
         var seen = Set<String>()
         for item in items {
             let copy = BookCopy(store: item.store, storeID: item.storeID, kind: item.kind, lockFree: item.lockFree,
-                                filePath: item.filePath, purchased: item.purchased, source: source)
+                                filePath: item.filePath, purchased: item.purchased?.wholeSeconds, source: source)
             seen.insert(copy.id)
 
             if let i = books.firstIndex(where: { b in b.copies.contains { $0.id == copy.id } }) {
@@ -103,6 +104,15 @@ extension LibraryData {
                 books[i].copies.append(copy)
                 books[i].wish = false
                 if books[i].author.isEmpty { books[i].author = item.author }
+                fill(&books[i], from: item)
+                books[i].changed = now
+                summary.added += 1
+            } else if let i = books.firstIndex(where: { $0.id == copy.id }) {
+                // A book that once left this store's list and is back: the same book again, with what the owner set on it.
+                books[i].removed = false
+                books[i].copies = [copy]
+                books[i].title = item.title
+                books[i].author = item.author
                 fill(&books[i], from: item)
                 books[i].changed = now
                 summary.added += 1
@@ -133,7 +143,7 @@ extension LibraryData {
             book.series = series
             book.seriesNumber = item.seriesNumber
         }
-        if let opened = item.lastOpened, opened > (book.lastOpened ?? .distantPast) { book.lastOpened = opened }
+        if let opened = item.lastOpened?.wholeSeconds, opened > (book.lastOpened ?? .distantPast) { book.lastOpened = opened }
         if let p = item.progress, p > (book.progress ?? 0) { book.progress = min(p, 1) }
         guard !book.statusByHand else { return }
         if item.finished {
@@ -146,6 +156,7 @@ extension LibraryData {
     // MARK: What the owner does by hand
 
     public mutating func setStatus(_ status: ReadStatus, of id: String, now: Date = Date()) {
+        let now = now.wholeSeconds
         guard let i = books.firstIndex(where: { $0.id == id }) else { return }
         books[i].status = status
         books[i].statusByHand = true
@@ -161,6 +172,7 @@ extension LibraryData {
     @discardableResult
     public mutating func add(title: String, author: String, store: BookStore?, now: Date = Date(),
                              newID: String = UUID().uuidString) -> Book? {
+        let now = now.wholeSeconds
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let author = author.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return nil }
@@ -190,6 +202,7 @@ extension LibraryData {
     }
 
     public mutating func remove(_ id: String, now: Date = Date()) {
+        let now = now.wholeSeconds
         guard let i = books.firstIndex(where: { $0.id == id }), canRemove(books[i]) else { return }
         books[i].removed = true
         books[i].wish = false
@@ -204,10 +217,19 @@ extension LibraryData {
         let byTitle: (Book, Book) -> Bool = { BookMatch.titleKey($0.title) < BookMatch.titleKey($1.title) }
         let recent: (Book, Book) -> Bool = { ($0.lastOpened ?? $0.changed) > ($1.lastOpened ?? $1.changed) }
 
-        let reading = owned.filter { $0.status == .reading }.sorted(by: recent)
+        // "Reading now" is what was opened lately: a book the store says was started but that has not been opened
+        // in the 90 days before the latest reading goes back to "Not read yet". A status set by hand always counts.
+        let latest = owned.compactMap(\.lastOpened).max() ?? Date()
+        let current: (Book) -> Bool = { book in
+            guard book.status == .reading else { return false }
+            if book.statusByHand { return true }
+            guard let opened = book.lastOpened else { return true }   // the store gave no day: take its word
+            return latest.timeIntervalSince(opened) <= 90 * 86_400
+        }
+        let reading = owned.filter(current).sorted(by: recent)
         if !reading.isEmpty { out.append(Shelf(id: "reading", title: "Reading now", colour: "purple", note: nil, books: reading)) }
 
-        let unread = owned.filter { $0.status == .unread }
+        let unread = owned.filter { $0.status == .unread || ($0.status == .reading && !current($0)) }
             .sorted { ($0.purchased ?? .distantPast, $1.title) > ($1.purchased ?? .distantPast, $0.title) }
         if !unread.isEmpty { out.append(Shelf(id: "unread", title: "Not read yet · \(unread.count)", colour: "red", note: nil, books: unread)) }
 
@@ -263,6 +285,11 @@ extension LibraryData {
         }
         .sorted { ($0.wish ? 1 : 0, BookMatch.titleKey($0.title)) < ($1.wish ? 1 : 0, BookMatch.titleKey($1.title)) }
     }
+}
+
+extension Date {
+    /// The file keeps times to the second, so times are cut to the second before they are compared.
+    var wholeSeconds: Date { Date(timeIntervalSince1970: timeIntervalSince1970.rounded(.down)) }
 }
 
 extension BookStore {
