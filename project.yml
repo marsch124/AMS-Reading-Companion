@@ -1,0 +1,113 @@
+# XcodeGen spec — run `xcodegen generate`, then open AMSReadingCompanion.xcodeproj.
+# ONE target for iPhone, iPad and Mac, laid out like AMS Apps Overview.
+name: AMSReadingCompanion
+options:
+  bundleIdPrefix: com.schabbauer
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: D24ENP83QQ
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    # The version lives here only; the Info.plist reads it from these two.
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  # The rules: the shelf, importers, search. No screen in it.
+  ReadingCore:
+    path: Core
+  # The shared AMS icon hub, pinned to one commit so a hub change never arrives by surprise.
+  AMSIcons:
+    url: https://github.com/marsch124/AMS-Icons
+    revision: 9ddf8ede7b72ed825e96f89bfdda55c6ddebcb11
+targets:
+  AMSReadingCompanion:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: App/Sources
+      - path: App/Resources/Assets.xcassets
+    dependencies:
+      - package: ReadingCore
+      - package: AMSIcons
+    entitlements:
+      path: App/Config/AMSReadingCompanion.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers: [iCloud.com.schabbauer.AMSReadingCompanion]
+        com.apple.developer.ubiquity-container-identifiers: [iCloud.com.schabbauer.AMSReadingCompanion]
+        com.apple.developer.icloud-services: [CloudDocuments]
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.files.user-selected.read-write: true
+        # Mac only in effect: read-only look at the Apple Books, Kindle and Kobo libraries.
+        com.apple.security.temporary-exception.files.home-relative-path.read-only:
+          - /Library/Containers/com.apple.iBooksX/Data/Documents/BKLibrary/
+          - /Library/Containers/com.amazon.Kindle/Data/Library/Application Support/Kindle/
+          - /Library/Application Support/Kobo/
+          # The owner's own book files, as Apple Books keeps them: read only to send one to another reader.
+          - /Library/Mobile Documents/iCloud~com~apple~iBooks/Documents/
+        # Send to Kobo: a lock-free file is copied into the Kobo's Dropbox folder.
+        com.apple.security.temporary-exception.files.home-relative-path.read-write:
+          - /Library/CloudStorage/Dropbox/Apps/Rakuten Kobo/
+        # Send to Kindle: a copy goes to Downloads, to choose on Amazon's Send to Kindle page.
+        com.apple.security.files.downloads.read-write: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.schabbauer.AMSReadingCompanion
+        # iPhone AND iPad. iPad means all four orientations (upload error 90474).
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        INFOPLIST_FILE: App/Config/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: App/Config/Info.plist
+      properties:
+        # Apple refuses "Companion" and "Books" in the name shown on the Home Screen.
+        CFBundleDisplayName: AMS Reading
+        CFBundleName: AMS Reading Companion
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleIconName: AppIcon
+        # A Mac category that exists (Food & Drink once stopped every Mac install from TestFlight).
+        LSApplicationCategoryType: public.app-category.utilities
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleURLTypes:
+          - CFBundleURLName: com.schabbauer.AMSReadingCompanion
+            CFBundleURLSchemes: [amsreading]
+            CFBundleTypeRole: Viewer
+        # So the app may ask whether the Kindle, Apple Books and Kobo apps are installed.
+        LSApplicationQueriesSchemes: [kindle, ibooks, kobo]
+        NSUbiquitousContainers:
+          iCloud.com.schabbauer.AMSReadingCompanion:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: AMS Reading
+            NSUbiquitousContainerSupportedFolderLevels: Any
+        UILaunchScreen:
+          UIColorName: ""
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+  AMSReadingCompanionUITests:
+    type: bundle.ui-testing
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: UITests
+    dependencies:
+      - target: AMSReadingCompanion
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.schabbauer.AMSReadingCompanionUITests
+        TEST_TARGET_NAME: AMSReadingCompanion
+schemes:
+  AMSReadingCompanion:
+    build:
+      targets:
+        AMSReadingCompanion: all
+    test:
+      targets:
+        - AMSReadingCompanionUITests
+        - package: ReadingCore/ReadingCoreTests
