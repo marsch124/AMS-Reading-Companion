@@ -12,12 +12,19 @@ public struct SeriesFound: Sendable, Equatable {
 public enum SeriesLookup {
     /// How many books a series has and what they are called. `knownTitle` is one book of the series the owner has.
     public static func find(series: String, author: String, knownTitle: String) async -> SeriesFound? {
-        guard let query = sparql(knownTitle: knownTitle, author: author) else { return nil }
+        await ask(series: series, author: author, knownTitle: knownTitle).found
+    }
+
+    /// The series, and whether the catalogue really answered: `answered` is false when it could not be reached,
+    /// so the app asks again next time instead of noting "unknown" for two months.
+    public static func ask(series: String, author: String, knownTitle: String) async -> (found: SeriesFound?, answered: Bool) {
+        guard let query = sparql(knownTitle: knownTitle, author: author) else { return (nil, true) }
         var comps = URLComponents(string: "https://query.wikidata.org/sparql")
         comps?.queryItems = [URLQueryItem(name: "query", value: query), URLQueryItem(name: "format", value: "json")]
-        guard let url = comps?.url,
-              let data = await LookupNet.get(url, accept: "application/sparql-results+json") else { return nil }
-        return parse(data, series: series)
+        guard let url = comps?.url else { return (nil, true) }
+        let answer = await LookupNet.ask(url, accept: "application/sparql-results+json")
+        guard let data = answer.data else { return (nil, answer.reached) }
+        return (parse(data, series: series), true)
     }
 
     static func sparql(knownTitle: String, author: String) -> String? {
@@ -31,6 +38,7 @@ public enum SeriesLookup {
           ?k rdfs:label "\(t)"@en; wdt:P50 ?a. ?a rdfs:label ?al.
           FILTER(LANG(?al)="en" && CONTAINS(LCASE(?al), "\(last)"))
           ?k wdt:P179 ?s. ?b p:P179 ?bs. ?bs ps:P179 ?s. ?b wdt:P50 ?a.
+          FILTER NOT EXISTS { ?b wdt:P50 ?other. FILTER(?other != ?a) }
           OPTIONAL { ?bs pq:P1545 ?ord }
           ?s rdfs:label ?sLabel. ?b rdfs:label ?bLabel.
           FILTER(LANG(?sLabel)="en" && LANG(?bLabel)="en")
@@ -52,12 +60,14 @@ public enum SeriesLookup {
         func value(_ row: [String: Any], _ key: String) -> String? { (row[key] as? [String: Any])?["value"] as? String }
 
         var groups: [String: [Double: String]] = [:]
+        var muddled: Set<String> = []                                   // a number given to two books: not trustworthy
         for row in rows {
             guard let s = value(row, "sLabel"), seriesKey(s) == want,
-                  let b = value(row, "bLabel"), let o = value(row, "ord"), let n = Double(o), n > 0 else { continue }
-            if let have = groups[s]?[n], have <= b { continue }          // two books on one number: keep one, steadily
+                  let b = value(row, "bLabel"), let o = value(row, "ord"), let n = Double(o), n.isFinite, n > 0, n < 1_000_000 else { continue }
+            if let have = groups[s]?[n], have != b { muddled.insert(s); continue }
             groups[s, default: [:]][n] = b
         }
+        for s in muddled { groups[s] = nil }
         guard let best = groups.sorted(by: { ($0.value.count, $1.key) > ($1.value.count, $0.key) }).first?.value, !best.isEmpty else { return nil }
         let volumes = best.keys.sorted().map { SeriesVolume(number: $0, title: best[$0] ?? "") }
         let total = max(volumes.count, Int(volumes.last?.number ?? 0))

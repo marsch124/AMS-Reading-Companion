@@ -1,7 +1,7 @@
 import Foundation
 
 /// One book of the shelf, as small as the Share check needs it.
-public struct ShelfEntry: Codable, Equatable, Sendable {
+public struct ShelfEntry: Codable, Equatable, Hashable, Sendable {
     public var title: String
     public var author: String
     /// Store names as shown: "Kobo", "Kindle", "Apple Books", "Own file".
@@ -28,15 +28,22 @@ public enum ShareMatch {
     public static func find(pageTitle: String, in shelf: [ShelfEntry]) -> [ShelfEntry] {
         let page = words(pageTitle)
         guard !page.isEmpty else { return [] }
+        let likelyKey = BookMatch.titleKey(likelyTitle(pageTitle))
         var hits: [(entry: ShelfEntry, length: Int, author: Bool)] = []
         for entry in shelf {
             let key = BookMatch.titleKey(entry.title)
             let keyWords = words(key)
-            guard contains(page, keyWords) else { continue }
+            if !likelyKey.isEmpty {
+                // A title could be cut out of the page: the book must be exactly that title.
+                guard !key.isEmpty, key == likelyKey else { continue }
+            } else {
+                // No title to cut out: whole words anywhere in the page text.
+                guard contains(page, keyWords) else { continue }
+            }
             let last = BookMatch.authorKey(entry.author)
             let authorFound = !last.isEmpty && page.contains(last)
             let letters = key.filter { $0.isLetter || $0.isNumber }.count
-            if letters < 5 && !authorFound { continue }
+            if likelyKey.isEmpty && letters < 5 && !authorFound { continue }
             hits.append((entry, letters, authorFound))
         }
         // Stable: author found first, then the longest title key, then shelf order.

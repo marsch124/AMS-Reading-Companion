@@ -46,7 +46,9 @@ public enum KindlePDFText {
                 }
                 guard found.count == 2 else { continue }
                 let author = found[0], title = found[1]
-                let key = String(title.lowercased().filter { $0.isLetter })
+                let lower = title.lowercased()
+                var key = String(lower.filter { $0.isLetter })
+                if key.isEmpty { key = String(lower.filter { $0.isLetter || $0.isNumber }) }
                 guard !key.isEmpty else { continue }
                 guard seen.insert(key + "|" + author.lowercased()).inserted else { continue }
                 out.append(ImportedBook(store: .kindle, storeID: "title-" + key, title: title, author: author,

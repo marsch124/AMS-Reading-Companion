@@ -70,6 +70,12 @@ final class KindlePDFTextTests: XCTestCase {
         XCTAssertEqual(d, ISO8601DateFormatter().date(from: "2021-09-14T12:00:00Z"))
     }
 
+    func testNumberTitleGetsDigitKey() {
+        let books = KindlePDFText.parse("2084!\nSomeone Else\nAcquired on March 3, 2022\n")
+        XCTAssertEqual(books.count, 1)
+        XCTAssertEqual(books.first?.storeID, "title-2084")
+    }
+
     func testDuplicatesAndRubbish() {
         let twice = sample + "\n" + sample
         XCTAssertEqual(KindlePDFText.parse(twice).count, 4)

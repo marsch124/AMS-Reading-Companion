@@ -112,7 +112,7 @@ struct BookPage: View {
 
     private func seriesLine(_ book: Book) -> String? {
         guard let series = book.series, !series.isEmpty else { return nil }
-        guard let n = book.seriesNumber else { return series }
+        guard let n = book.seriesNumber, n.isFinite, abs(n) < 1_000_000 else { return series }
         let number = n == n.rounded() ? String(Int(n)) : String(n)
         return "\(series) · book \(number)"
     }

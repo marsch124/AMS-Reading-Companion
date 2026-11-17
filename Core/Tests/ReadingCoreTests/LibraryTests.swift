@@ -350,8 +350,8 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(lib.find("heron").count, 1)
         lib.setNote("   ", of: "kobo:a", now: t0)
         XCTAssertNil(lib.book("kobo:a")?.note)
-        lib.setCover("https://example.test/one.jpg", of: "kobo:a", now: t0)
-        lib.setCover("https://example.test/two.jpg", of: "kobo:a", now: t0)
+        lib.setCover("https://example.test/one.jpg", of: "kobo:a")
+        lib.setCover("https://example.test/two.jpg", of: "kobo:a")
         XCTAssertEqual(lib.book("kobo:a")?.coverURL, "https://example.test/one.jpg")
     }
 
@@ -381,5 +381,20 @@ final class LibraryTests: XCTestCase {
         XCTAssertNil(lib.books[0].note)
         XCTAssertFalse(lib.books[0].gaveUp)
         XCTAssertTrue(lib.series.isEmpty)
+    }
+
+    /// A cover found on one device must not beat a rating made on another: finding a cover is no "newer change",
+    /// and when two copies of the shelf are joined the cover is carried over to the side that wins.
+    func testACoverFoundOnOneDeviceNeverWinsOverARatingFromAnother() {
+        var phone = LibraryData()
+        phone.take([ImportedBook(store: .kindle, storeID: "B1", title: "Tide Tables", author: "Nora Quill")], source: .kindle, complete: false,
+                   now: Date(timeIntervalSince1970: 1_790_000_000))
+        var mac = phone
+        mac.setRating(4, of: "kindle:B1", now: Date(timeIntervalSince1970: 1_790_000_500))
+        phone.setCover("https://example.test/tide.jpg", of: "kindle:B1")
+        for joined in [LibraryData.merged(phone, mac), LibraryData.merged(mac, phone)] {
+            XCTAssertEqual(joined.book("kindle:B1")?.rating, 4)
+            XCTAssertEqual(joined.book("kindle:B1")?.coverURL, "https://example.test/tide.jpg")
+        }
     }
 }

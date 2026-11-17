@@ -57,6 +57,10 @@ struct RootView: View {
                 model.startBook = nil
                 path = [.book(id)]
             }
+            if let id = model.startShelf {
+                model.startShelf = nil
+                path = [.shelf(id)]
+            }
         }
     }
 

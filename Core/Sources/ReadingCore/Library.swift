@@ -305,7 +305,7 @@ extension LibraryData {
     /// "3 of 7 · missing 2, 4, 6 and 7" when a catalogue told how long the series is; otherwise "3 owned · missing 2 and 4",
     /// where gaps are only known below the highest number that is owned.
     static func seriesNote(_ books: [Book], info: SeriesInfo? = nil) -> String {
-        let numbers = Set(books.compactMap(\.seriesNumber).filter { $0 >= 1 && $0 == $0.rounded() }.map { Int($0) })
+        let numbers = Set(books.compactMap(\.seriesNumber).filter { $0 >= 1 && $0 < 100_000 && $0 == $0.rounded() }.map { Int($0) })
         let top = numbers.max() ?? 0
         var note: String
         var last = top - 1
@@ -325,7 +325,7 @@ extension LibraryData {
     /// The book that follows this one in its series: on the shelf, or known by name from a catalogue, or just a gap.
     public func nextInSeries(after book: Book) -> SeriesNext? {
         guard let name = book.series?.trimmingCharacters(in: .whitespaces), !name.isEmpty,
-              let number = book.seriesNumber, number >= 1, number == number.rounded() else { return nil }
+              let number = book.seriesNumber, number >= 1, number < 100_000, number == number.rounded() else { return nil }
         let key = BookMatch.plain(name)
         let next = Int(number) + 1
         let others = owned.filter { $0.id != book.id && BookMatch.plain($0.series ?? "") == key }
@@ -394,11 +394,12 @@ extension LibraryData {
         books[i].changed = now.wholeSeconds
     }
 
-    /// A cover picture found for a book that had none.
-    public mutating func setCover(_ address: String, of id: String, now: Date = Date()) {
+    /// A cover picture found for a book that had none. This is not something the owner did, so it does not count
+    /// as a newer change of the book: it must never win over a rating or note made on another device.
+    /// (`merged` carries a cover across when the winning side has none.)
+    public mutating func setCover(_ address: String, of id: String) {
         guard let i = books.firstIndex(where: { $0.id == id }), books[i].coverURL == nil, !address.isEmpty else { return }
         books[i].coverURL = address
-        books[i].changed = now.wholeSeconds
     }
 
     public func seriesInfo(for name: String) -> SeriesInfo? {

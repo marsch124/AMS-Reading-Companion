@@ -230,7 +230,7 @@ struct ScanView: View {
             guard let found else { outcome = .unknown; return }
             if let book = model.data.ownedMatch(title: found.title, author: found.author) {
                 outcome = .owned(found, book)
-            } else if model.data.find(found.title).first(where: \.wish) != nil {
+            } else if model.data.shown.first { $0.wish && BookMatch.same(title: $0.title, author: $0.author, title: found.title, author: found.author) } != nil {
                 outcome = .wished(found)
             } else {
                 outcome = .new(found)

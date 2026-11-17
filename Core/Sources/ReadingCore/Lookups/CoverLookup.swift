@@ -3,15 +3,23 @@ import Foundation
 public enum CoverLookup {
     /// A cover picture address for a book known only by title and author (the Kindle books have no picture). nil when nothing fits.
     public static func find(title: String, author: String) async -> String? {
+        await ask(title: title, author: author).cover
+    }
+
+    /// The cover, and whether the question was really answered: `answered` is false when a catalogue could not be
+    /// reached, so the app asks again another day instead of giving up on the book.
+    public static func ask(title: String, author: String) async -> (cover: String?, answered: Bool) {
         let term = title + " " + LookupNet.plainAuthor(author)
         let apple = LookupNet.url("https://itunes.apple.com/search",
                                   [("term", term), ("entity", "ebook"), ("country", "se"), ("limit", "10")])
-        if let data = await LookupNet.get(apple), let cover = parseApple(data, title: title, author: author) { return cover }
+        let first = await LookupNet.ask(apple)
+        if let data = first.data, let cover = parseApple(data, title: title, author: author) { return (cover, true) }
         let open = LookupNet.url("https://openlibrary.org/search.json",
                                  [("title", title), ("author", LookupNet.plainAuthor(author)), ("limit", "10"),
                                   ("fields", "title,author_name,cover_i")])
-        if let data = await LookupNet.get(open) { return parseOpenLibrary(data, title: title, author: author) }
-        return nil
+        let second = await LookupNet.ask(open)
+        if let data = second.data, let cover = parseOpenLibrary(data, title: title, author: author) { return (cover, true) }
+        return (nil, first.reached && second.reached)
     }
 
     /// First Apple Books hit that is the same book; the 100-point picture is asked for in 600 points.

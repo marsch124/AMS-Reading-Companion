@@ -199,7 +199,11 @@ public struct LibraryData: Codable, Equatable, Sendable {
         var order: [String] = []
         for book in a.books + b.books {
             if let have = byID[book.id] {
-                if book.changed > have.changed { byID[book.id] = book }
+                var winner = book.changed > have.changed ? book : have
+                let other = book.changed > have.changed ? have : book
+                // A cover found on one device is kept, whichever side holds the newer change.
+                if winner.coverURL == nil, let cover = other.coverURL { winner.coverURL = cover }
+                byID[book.id] = winner
             } else {
                 byID[book.id] = book
                 order.append(book.id)

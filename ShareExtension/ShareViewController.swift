@@ -4,20 +4,33 @@ import UniformTypeIdentifiers
 import ReadingCore
 
 final class ShareViewController: UIViewController {
+    private var shown = false
+
     override func viewDidLoad() {
         super.viewDidLoad()
         Task { @MainActor in
             let page = await Self.readPage(extensionContext?.inputItems as? [NSExtensionItem] ?? [])
-            let model = ShareModel(pageTitle: page, index: ShareFiles.readIndex()) { [weak self] in
-                self?.extensionContext?.completeRequest(returningItems: nil)
-            }
-            let host = UIHostingController(rootView: ShareSheet(model: model))
-            addChild(host)
-            host.view.frame = view.bounds
-            host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            view.addSubview(host.view)
-            host.didMove(toParent: self)
+            showSheet(page: page)
         }
+        // Fallback: never stay blank. After 3 seconds show the not-found state with empty fields.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            showSheet(page: "")
+        }
+    }
+
+    private func showSheet(page: String) {
+        guard !shown else { return }
+        shown = true
+        let model = ShareModel(pageTitle: page, index: ShareFiles.readIndex()) { [weak self] in
+            self?.extensionContext?.completeRequest(returningItems: nil)
+        }
+        let host = UIHostingController(rootView: ShareSheet(model: model))
+        addChild(host)
+        host.view.frame = view.bounds
+        host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(host.view)
+        host.didMove(toParent: self)
     }
 
     /// The page title: the item's title, else shared text, else the last words of the URL.
@@ -39,9 +52,11 @@ final class ShareViewController: UIViewController {
         }
         if !title.isEmpty { return title }
         if let u = url ?? URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)), u.host != nil {
+            let junk: Set<String> = ["book", "books", "dp", "gp", "product", "ebook", "en", "se", "us"]
             let words = u.pathComponents.filter { $0 != "/" }
+                .filter { part in !junk.contains(part.lowercased()) && !part.contains(where: \.isNumber) }
                 .flatMap { $0.split(whereSeparator: { "-_+. ".contains($0) }) }
-                .map(String.init).filter { !$0.allSatisfy(\.isNumber) }
+                .map(String.init)
             let joined = words.joined(separator: " ")
             return joined.isEmpty ? (u.host ?? "") : joined
         }
@@ -64,6 +79,10 @@ final class ShareModel: ObservableObject {
     }
 
     var matches: [ShelfEntry] { index.map { ShareMatch.find(pageTitle: pageTitle, in: $0) } ?? [] }
+    /// On the shelf in a store (or a plain entry).
+    var owned: [ShelfEntry] { matches.filter { !($0.wish && $0.stores.isEmpty) } }
+    /// Only on the wish list, in no store.
+    var wished: [ShelfEntry] { matches.filter { $0.wish && $0.stores.isEmpty } }
 
     func addWish() {
         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -73,44 +92,78 @@ final class ShareModel: ObservableObject {
     }
 }
 
+extension Color {
+    fileprivate static func adaptive(day: (Double, Double, Double), night: (Double, Double, Double)) -> Color {
+        Color(UIColor { traits in
+            let c = traits.userInterfaceStyle == .dark ? night : day
+            return UIColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+        })
+    }
+    static let sharePurple = adaptive(day: (0.48, 0.31, 0.54), night: (0.80, 0.66, 0.88))
+    static let shareGreen = adaptive(day: (0.07, 0.52, 0.35), night: (0.38, 0.84, 0.62))
+    static let shareRed = adaptive(day: (0.79, 0.29, 0.20), night: (1.00, 0.60, 0.50))
+    /// Full-colour button background: always the day value, with white text.
+    static let shareButton = Color(red: 0.48, green: 0.31, blue: 0.54)
+}
+
 struct ShareSheet: View {
     @ObservedObject var model: ShareModel
-    private let purple = Color(red: 0.48, green: 0.31, blue: 0.54)
-    private let green = Color(red: 0.20, green: 0.55, blue: 0.30)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("AMS Reading").font(.headline).foregroundStyle(purple)
+            Text("AMS Reading").font(.headline).foregroundStyle(Color.sharePurple)
             if model.index == nil {
                 Text("Open AMS Reading once on this device, then try again.")
                     .font(.body).accessibilityIdentifier("share-no-index")
+                Spacer(minLength: 0)
+                doneButton
             } else if !model.matches.isEmpty {
-                Text("You own this").font(.headline).foregroundStyle(green).accessibilityIdentifier("share-owned")
-                ForEach(model.matches, id: \.title) { book in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(book.author.isEmpty ? book.title : "\(book.title) — \(book.author)").font(.body)
-                        Text(detail(book)).font(.subheadline).foregroundStyle(.secondary)
-                    }
+                if !model.owned.isEmpty {
+                    Text("You own this").font(.headline).foregroundStyle(Color.shareGreen).accessibilityIdentifier("share-owned")
+                    bookList(model.owned)
                 }
+                if !model.wished.isEmpty {
+                    Text("Already on your wish list").font(.headline).foregroundStyle(Color.sharePurple).accessibilityIdentifier("share-wished")
+                    bookList(model.wished)
+                }
+                Spacer(minLength: 0)
+                doneButton
             } else {
-                Text("Not on your shelf").font(.headline).foregroundStyle(.orange).accessibilityIdentifier("share-none")
+                Text("Not on your shelf").font(.headline).foregroundStyle(Color.shareRed).accessibilityIdentifier("share-none")
                 TextField("Title", text: $model.title).textFieldStyle(.roundedBorder).accessibilityIdentifier("share-title")
                 TextField("Author", text: $model.author).textFieldStyle(.roundedBorder).accessibilityIdentifier("share-author")
+                Spacer(minLength: 0)
                 Button(action: model.addWish) {
-                    Text("Add to wish list").font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
-                        .background(purple, in: RoundedRectangle(cornerRadius: 10)).foregroundStyle(.white)
+                    Text("Save to wish list").font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+                        .background(Color.shareButton, in: RoundedRectangle(cornerRadius: 10)).foregroundStyle(.white)
                 }
                 .buttonStyle(.plain).accessibilityIdentifier("share-add-wish")
+                Button(action: model.close) {
+                    Text("Cancel").font(.body).frame(maxWidth: .infinity).padding(.vertical, 6)
+                        .foregroundStyle(Color.sharePurple)
+                }
+                .buttonStyle(.plain).accessibilityIdentifier("share-cancel")
             }
-            Spacer(minLength: 0)
-            Button(action: model.close) {
-                Text("Done").font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
-                    .background(purple, in: RoundedRectangle(cornerRadius: 10)).foregroundStyle(.white)
-            }
-            .buttonStyle(.plain).accessibilityIdentifier("share-done")
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var doneButton: some View {
+        Button(action: model.close) {
+            Text("Done").font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+                .background(Color.shareButton, in: RoundedRectangle(cornerRadius: 10)).foregroundStyle(.white)
+        }
+        .buttonStyle(.plain).accessibilityIdentifier("share-done")
+    }
+
+    private func bookList(_ books: [ShelfEntry]) -> some View {
+        ForEach(books, id: \.self) { book in
+            VStack(alignment: .leading, spacing: 2) {
+                Text(book.author.isEmpty ? book.title : "\(book.title) — \(book.author)").font(.body)
+                Text(detail(book)).font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
     }
 
     private func detail(_ b: ShelfEntry) -> String {

@@ -184,9 +184,21 @@ final class Covers: ObservableObject {
     private var asked = Set<String>()
     private let key = "coverAddresses"
     private let triedKey = "coverTriedByTitle"
-    var off = false
+    /// Made-up books (`-sampleData`): nothing is ever asked. Read from the launch arguments at once, so no cover
+    /// can be asked before a screen had the time to say so.
+    var off = ProcessInfo.processInfo.arguments.contains("-sampleData")
     /// Where a cover found by title is kept: on the book itself, so every device gets it.
-    var keep: ((_ bookID: String, _ address: String) -> Void)?
+    var keep: ((_ bookID: String, _ address: String) -> Void)? {
+        didSet {
+            guard let keep else { return }
+            for (id, address) in waiting { keep(id, address) }
+            waiting = []
+        }
+    }
+    /// Covers found before `keep` was set.
+    private var waiting: [(String, String)] = []
+    /// By-title questions go one after the other with a pause, so 25 new books do not ask 25 times at once.
+    private var line: Task<Void, Never>?
 
     init() {
         found = (UserDefaults.standard.dictionary(forKey: key) as? [String: String]) ?? [:]
@@ -225,12 +237,23 @@ final class Covers: ObservableObject {
     private func lookUpByTitle(_ book: Book) async {
         guard !book.title.isEmpty, !asked.contains(book.id) else { return }
         asked.insert(book.id)
-        var tried = Set(UserDefaults.standard.stringArray(forKey: triedKey) ?? [])
-        guard !tried.contains(book.id) else { return }
-        tried.insert(book.id)
-        UserDefaults.standard.set(Array(tried), forKey: triedKey)
-        if let address = await CoverLookup.find(title: book.title, author: book.author) {
-            keep?(book.id, address)
+        guard !(UserDefaults.standard.stringArray(forKey: triedKey) ?? []).contains(book.id) else { return }
+        let id = book.id, title = book.title, author = book.author
+        let before = line
+        line = Task { [weak self] in
+            await before?.value
+            let answer = await CoverLookup.ask(title: title, author: author)
+            guard let self else { return }
+            if let cover = answer.cover {
+                if let keep = self.keep { keep(id, cover) } else { self.waiting.append((id, cover)) }
+            }
+            // Only a real answer is remembered. A catalogue that could not be reached is asked again next time.
+            if answer.answered {
+                var tried = Set(UserDefaults.standard.stringArray(forKey: self.triedKey) ?? [])
+                tried.insert(id)
+                UserDefaults.standard.set(Array(tried), forKey: self.triedKey)
+            }
+            try? await Task.sleep(nanoseconds: 3_200_000_000)
         }
     }
 }

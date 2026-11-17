@@ -20,7 +20,9 @@ public enum KindleListFile {
             let asin = (string(row, ["asin"]) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             let purchased = date(row, ["purchased", "acquired", "date"])
             if asin.isEmpty {
-                let key = String(title.lowercased().filter { $0.isLetter })
+                let lower = title.lowercased()
+                var key = String(lower.filter { $0.isLetter })
+                if key.isEmpty { key = String(lower.filter { $0.isLetter || $0.isNumber }) }
                 guard !key.isEmpty else { continue }
                 out.append(ImportedBook(store: .kindle, storeID: "title-" + key, title: title, author: author,
                                         kind: .ebook, purchased: purchased))

@@ -31,7 +31,7 @@ final class LookupTests: XCTestCase {
         XCTAssertNil(PriceLookup.parseApple(d(apple), title: "Neuromancer", author: "William Gibson"))
         XCTAssertNotNil(PriceLookup.koboSearch(title: "Dune", author: "Herbert, Frank"))
         XCTAssertEqual(PriceLookup.kindleSearch(title: "Dune & More", author: "Frank Herbert")?.absoluteString,
-                       "https://www.amazon.se/s?k=Dune%20%26%20More%20Frank%20Herbert&i=digital-text")
+                       "https://www.amazon.com/s?k=Dune%20%26%20More%20Frank%20Herbert&i=digital-text")
     }
 
     func testISBN() {
@@ -66,6 +66,8 @@ final class LookupTests: XCTestCase {
         XCTAssertEqual(found?.volumes.first, SeriesVolume(number: 1, title: "Prelude to Foundation"))
         XCTAssertEqual(found?.volumes.count, 7)
         XCTAssertNil(SeriesLookup.parse(d(json), series: "Dune"))        // a different series is refused
+        let clash = #"{"results":{"bindings":[\#(row("Lord", "A", "1")),\#(row("Lord", "B", "1"))]}}"#
+        XCTAssertNil(SeriesLookup.parse(d(clash), series: "Lord"))       // two books on one number: no answer
         XCTAssertNotNil(SeriesLookup.sparql(knownTitle: "Foundation (Foundation #1)", author: "Asimov, Isaac"))
     }
 }

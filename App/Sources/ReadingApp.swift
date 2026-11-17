@@ -31,7 +31,6 @@ struct ReadingApp: App {
             .environmentObject(covers)
             .tint(Theme.text("purple"))
             .onAppear {
-                covers.off = model.sample
                 covers.keep = { id, address in model.setCover(address, of: id) }
             }
             .onChange(of: phase) { _, now in
@@ -62,6 +61,8 @@ final class ReadingModel: ObservableObject {
     @Published var fileNote: String?
     /// For pictures and screen tests: `-show <book id>` starts on that book's page.
     @Published var startBook: String?
+    /// For pictures: `-shelf unread` starts on that shelf's page.
+    @Published var startShelf: String?
 
     /// Made-up books for pictures and screen tests (`-sampleData`): nothing is read and nothing is saved.
     let sample: Bool
@@ -95,6 +96,7 @@ final class ReadingModel: ObservableObject {
         searchShown = args.contains("-search")
         addShown = args.contains("-add")
         scanShown = args.contains("-scan")
+        if let i = args.firstIndex(of: "-shelf"), i + 1 < args.count { startShelf = args[i + 1] }
         // `-show Brass` starts on the page of the first book whose title begins with that word.
         // (By title, not by id: the Mac takes an argument with a colon in it for a file to open and shows no window.)
         if let i = args.firstIndex(of: "-show"), i + 1 < args.count {
@@ -179,10 +181,19 @@ final class ReadingModel: ObservableObject {
         let wanted = data.seriesNames().filter { (data.seriesInfo(for: $0.name)?.checked ?? .distantPast) < stale }.prefix(40)
         guard !wanted.isEmpty else { return }
         seriesTask = Task {
+            var answers: [(String, SeriesInfo)] = []
             for entry in wanted {
-                let found = await SeriesLookup.find(series: entry.name, author: entry.author, knownTitle: entry.title)
-                self.change { $0.setSeries(SeriesInfo(total: found?.total, volumes: found?.volumes ?? []), for: entry.name) }
-                try? await Task.sleep(nanoseconds: 400_000_000)
+                let answer = await SeriesLookup.ask(series: entry.name, author: entry.author, knownTitle: entry.title)
+                // The catalogue could not be reached: stop, note nothing, and try again another time.
+                guard answer.answered else { break }
+                answers.append((entry.name, SeriesInfo(total: answer.found?.total, volumes: answer.found?.volumes ?? [])))
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            // Everything in one go: one change, one save.
+            if !answers.isEmpty {
+                self.change { data in
+                    for (name, info) in answers { data.setSeries(info, for: name) }
+                }
             }
             self.seriesTask = nil
         }

@@ -25,7 +25,7 @@ public enum PriceLookup {
 
     /// Amazon Sweden's Kindle-books search page, opened by the owner himself.
     public static func kindleSearch(title: String, author: String) -> URL? {
-        LookupNet.url("https://www.amazon.se/s", [("k", title + " " + LookupNet.plainAuthor(author)), ("i", "digital-text")])
+        LookupNet.url("https://www.amazon.com/s", [("k", title + " " + LookupNet.plainAuthor(author)), ("i", "digital-text")])
     }
 
     /// Apple lists several editions of one book at different prices. Take the best-ranked edition of the same

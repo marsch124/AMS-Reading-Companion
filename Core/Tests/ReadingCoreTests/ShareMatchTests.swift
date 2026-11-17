@@ -36,4 +36,10 @@ final class ShareMatchTests: XCTestCase {
         XCTAssertEqual(ShareMatch.likelyTitle("Harbour Lights by Una Vale | Goodreads"), "Harbour Lights")
         XCTAssertEqual(ShareMatch.likelyAuthor("Harbour Lights by Una Vale | Goodreads"), "Una Vale")
     }
+
+    func testLongerTitleOfTheSameSeriesIsNotTheOwnedBook() {
+        XCTAssertTrue(ShareMatch.find(pageTitle: "Harbour Lights Returns by Una Vale | Goodreads", in: shelf).isEmpty)
+        XCTAssertEqual(ShareMatch.find(pageTitle: "Harbour Lights: A Novel by Una Vale | Goodreads", in: shelf).first?.title, "Harbour Lights")
+        XCTAssertEqual(ShareMatch.find(pageTitle: "The Salt Road: A Journey eBook : Rowan, Ben: Amazon.com: Kindle Store", in: shelf).first?.title, "The Salt Road: A Journey")
+    }
 }
