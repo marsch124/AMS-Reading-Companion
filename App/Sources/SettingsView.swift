@@ -57,6 +57,7 @@ struct SettingsView: View {
                         Text(model.isMac
                              ? "This Mac reads the lists each time AMS Reading opens. After buying a book, open the store's Mac app once so it knows the book."
                              : "The lists are read on your Mac and arrive here through iCloud.")
+                            .fixedSize(horizontal: false, vertical: true)
                         if !model.cloudOn {
                             Text("iCloud Drive is off on this device, so the shelf stays on this device only.")
                                 .foregroundStyle(Theme.text("red"))
@@ -74,6 +75,7 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .buttonStyle(FilledButton(colour: "purple"))
                         .keyboardShortcut(.cancelAction)
                         .accessibilityIdentifier("settingsDone")
                 }

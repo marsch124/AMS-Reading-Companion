@@ -38,6 +38,7 @@ struct SearchView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .buttonStyle(FilledButton(colour: "purple"))
                         .keyboardShortcut(.cancelAction)
                         .accessibilityIdentifier("search-done")
                 }

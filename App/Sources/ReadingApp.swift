@@ -90,7 +90,12 @@ final class ReadingModel: ObservableObject {
         settingsShown = args.contains("-settings")
         searchShown = args.contains("-search")
         addShown = args.contains("-add")
-        if let i = args.firstIndex(of: "-show"), i + 1 < args.count { startBook = args[i + 1] }
+        // `-show Brass` starts on the page of the first book whose title begins with that word.
+        // (By title, not by id: the Mac takes an argument with a colon in it for a file to open and shows no window.)
+        if let i = args.firstIndex(of: "-show"), i + 1 < args.count {
+            let word = args[i + 1].lowercased()
+            startBook = data.shown.first { $0.id == args[i + 1] || $0.title.lowercased().hasPrefix(word) }?.id
+        }
         #if os(macOS)
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.saveNow(wait: true) }

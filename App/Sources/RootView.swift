@@ -32,6 +32,8 @@ struct RootView: View {
                 .padding(.vertical, 8)
             }
             .accessibilityIdentifier("shelf-list")
+            // The Mac would draw a keyboard-focus frame around the first shelf heading.
+            .focusEffectDisabled()
             .navigationTitle("My Books")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
