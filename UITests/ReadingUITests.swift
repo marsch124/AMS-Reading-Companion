@@ -65,14 +65,15 @@ final class ReadingUITests: XCTestCase {
         XCTAssertTrue(element(app, id).waitForExistence(timeout: 10), "missing \(id)", file: file, line: line)
     }
 
-    func testFilterCountsAndShows() {
+    func testFilterMenusNarrowTheBooks() {
         let app = launch([])
         tap(app, "open-filter")
-        shows(app, "filter-page")
-        tap(app, "filter-store-kobo")
-        tap(app, "filter-show")
         shows(app, "results-page")
         shows(app, "results-count")
+        // The Store menu opens and a tick in it narrows the books down: "Clear" then shows.
+        tap(app, "filter-menu-store")
+        tap(app, "filter-store-kobo")
+        shows(app, "filter-clear")
     }
 
     func testNewNoteIsSavedAndShowsInTheNotebook() {

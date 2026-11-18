@@ -109,9 +109,6 @@ struct RootView: View {
         .sheet(isPresented: $model.addShown) { AddBookPage() }
         .sheet(isPresented: $model.scanShown) { ScanView() }
         .sheet(isPresented: $model.yearShown) { YearPage(start: model.yearOnNumbers ? .numbers : .year) }
-        .sheet(isPresented: $model.filterShown) {
-            FilterPage(onShow: { path.append(.results($0)) }, onKeep: { path.append(.shelf("saved-\($0.id)")) })
-        }
         .sheet(isPresented: $model.notesShown) { NotesPage() }
         .sheet(item: $model.noteDraft) { NoteEditPage(draft: $0) }
         .sheet(isPresented: $changesShown) { ChangesPage() }
@@ -126,6 +123,11 @@ struct RootView: View {
         if let id = model.startShelf {
             model.startShelf = nil
             path = [.shelf(id)]
+        }
+        // For pictures: `-filter` starts on the big filter.
+        if model.filterShown {
+            model.filterShown = false
+            path = [.results(BookFilter())]
         }
         // For pictures: `-page author`, `-page series`, `-page results`, `-page changes` start on that page.
         if let page = model.startPage {
@@ -202,7 +204,8 @@ struct RootView: View {
 
     /// The big filter over the whole shelf.
     private var filterButton: some View {
-        Button { model.filterShown = true } label: {
+        // The filter is a page of the shelves' own stack: every book, with the menus above them.
+        Button { path.append(.results(BookFilter())) } label: {
             AppMarkView(.filter, size: 20)
         }
         .help("Filter: narrow the whole shelf down")
@@ -575,7 +578,7 @@ struct ShelfAllView: View {
             if gone { dismiss() }
         }
         .sheet(isPresented: $changingKept) {
-            if let kept = model.data.keptFilter(shelfID: shelfID) { FilterPage(kept: kept) }
+            if let kept = model.data.keptFilter(shelfID: shelfID) { KeptShelfPage(kept: kept) }
         }
     }
 

@@ -79,8 +79,8 @@ final class ReadingModel: ObservableObject {
     @Published var cloudOn = true
     /// A line in Settings after a Kindle list file was taken in.
     @Published var fileNote: String?
-    /// The big filter (0.6).
-    @Published var filterShown = false
+    /// For pictures: `-filter` starts on the big filter (0.6).
+    var filterShown = false
     /// The notebook: every reading note (0.6).
     @Published var notesShown = false
     /// A note being written or changed, from anywhere in the app.
