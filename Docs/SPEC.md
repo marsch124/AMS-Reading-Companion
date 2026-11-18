@@ -1,4 +1,4 @@
-# AMS Reading Companion — specification, version 0.6 (18 November 2026)
+# AMS Reading Companion — specification, version 0.7 (18 November 2026)
 
 Platforms: iPhone, iPad, Mac.
 
@@ -64,6 +64,7 @@ Platforms: iPhone, iPad, Mac.
   5. Lock-free (`lockfree`, teal), by title
   6. Audiobooks (`audio`, amber), by title
   7. Bought twice (`twice`, pink), by title: a book with copies of the same kind (to read, or to listen to) in two different stores; own files do not count. Real data 17 Nov 2026: 7, of which 3 Kindle + Apple Books.
+  7a. (0.7) Read + listen (`pairs`): titles owned both to read (an ebook or an own file, in any store) and to listen to (an audiobook, in any store). Not the same as Bought twice (same kind in two stores). Hidden or moved in Choose your shelves like the others (5.14). The book page says "You own this to read and to listen to".
   8. Finished (`finished`, grey), most recent first
   9. Gave up (`gaveup`, grey), by title: gave-up flag set AND status Reading.
   10. Wish list (`wish`, blue), always shown, newest first
@@ -192,6 +193,24 @@ Platforms: iPhone, iPad, Mac.
 ### 5.19 Progress on covers (0.6)
 - `coverProgress`: for a book with status Reading, not gave up, whose store reported `progress` between 1 % and 99.5 %. A thin bar along the bottom of its cover tile (`cover-progress`; white on dark, width = share read) on every shelf and grid; the book page says "<n> % read" (`book-progress`). The percent comes from the store (Apple Books and Kobo), read on the Mac; Kindle gives none.
 
+### 5.20 Search in the notebook (0.7)
+- A search field on top of `notes-page`. It shows the notes that hold every word typed (all words must match), in the note's text, its page, its kind's name, or the title or author of its book. Capitals and accents do not matter. It works together with the kind chips (`notes-kind-all`, `notes-kind-<id>`, `notes-kind-other`): a note must fit both. Nothing is stored.
+
+### 5.21 Quote of the day (0.7)
+- Under the `open-notes` line on the main screen: one of the owner's own notes of the kind Quote, with the book it is from. Same quote all day; the next day the next quote, in turn, so every quote gets its day. A tap opens the note. No quotes written (or a read-only shelf cannot open it): no line. Nothing is stored; the pick follows from the day and the list of quotes.
+
+### 5.22 "Just finished" card (0.7)
+- On top of the main screen: when a book became Finished within the last 14 days and has no stars yet, a card "Just finished · <title>. How was it?" with five stars, one line for a few words, "Save" and "Not now". Save writes the stars and the words as the book's own "Stars and note" (the same fields as 9). "Not now" is remembered on that device only (not in the shelf file). Giving stars on any device ends the question everywhere. One card at a time, the latest finished book first.
+
+### 5.23 "Send these" (0.7)
+- In the notebook: a button sends exactly the notes that show (after search and kind) as one page, book by book; each note with its kind in front and its page. Sent with the system Share sheet (any app, for example PARAGON).
+
+### 5.24 Cover wall (0.7)
+- A shelf's page (`shelf-all-<id>`) and the page "All books" (5.10) have one small button in the top bar that switches between the list and a wall: a full grid of covers with no words. A tap on a cover opens the book. The choice is remembered on the device; one switch for all shelves; not in the shelf file.
+
+### 5.25 Library check (0.7)
+- On the page of a wish-list book: "At the library?" asks LIBRIS (Sweden's national library catalogue) whether libraries have the title, and shows in which forms (paper book, e-book, audiobook) with a button "Open at the library" that opens the catalogue's page for the title. Only the title and the author are sent. It tells that libraries in Sweden list the title, not which one. When the catalogue cannot be reached it says so; nothing is remembered as "not there".
+
 ## 6. Cover marks
 - Dots per store: Kobo red-orange, Kindle blue, Apple Books grey, own file teal.
 - Open-lock mark when lock-free; headphones mark for an audiobook.
@@ -287,6 +306,7 @@ All requests: 8 seconds time limit; an error or any doubt gives "nothing", never
 - Barcode (`ISBNLookup`): Open Library (`isbn:<number>`), then Apple Books (iTunes Lookup, 13 digits only, Sweden). Gives title, author, cover. Many books are known; some are not ("This number is not in the book catalogue.").
 - Price (`PriceLookup`): Apple Books only (iTunes Search, Sweden). Kobo and Kindle give only search links.
 - What a book is about (`AboutLookup`, 0.6): see 5.18. Title and author only.
+- Library check (`LIBRIS`, 0.7): see 5.25. Title and the author's last name only (the app holds no ISBN for a wish; the lookup can take one). LIBRIS's open search (`xsearch`) gives no holdings: the app says in which forms Swedish libraries list the title, never which library. Asked when the wish's page opens; the answer is kept while the app is open; "could not reach" is never kept. Identifiers: `library-found`, `library-none`, `library-unreachable`, `library-open`. Other 0.7 identifiers: `finished-card`, `finished-save`, `finished-skip`, `quote-of-day`, `notes-search`, `notes-send-shown`, `notes-none-found`, `wall-toggle`, `cover-wall`, `book-pair`; shelf id `pairs` (colour olive).
 - Catalogues named: Apple Books (itunes.apple.com), Open Library (openlibrary.org, covers.openlibrary.org), Wikidata (query.wikidata.org), Kobo (kobo.com, link only), Amazon (amazon.com, link only).
 
 ## 15. Launch arguments (pictures and screen tests)
@@ -309,6 +329,8 @@ All requests: 8 seconds time limit; an error or any doubt gives "nothing", never
 - Sending lock-free books (Open in Apple Books, Send to Kobo, Send to Kindle) end to end.
 - 0.6, on a real device: Speak (microphone and speech), Photo of the page (camera; on the Mac a picture file), sharing a note to another app (for example PARAGON), the description lookup on the owner's real books.
 
+- 0.7, on a real device: the library check on the owner's real wish list, the cover wall on an iPad.
+
 ## 18. Later
 - Highlights.
 - Sending from iPhone.
@@ -320,6 +342,7 @@ All requests: 8 seconds time limit; an error or any doubt gives "nothing", never
 - 0.2 (17 Nov 2026): fix. Built-in Kindle entries left out (16 entries became 2); samples and built-in items marked later leave the shelf; honest Kindle count in Settings.
 - 0.3 (17 Nov 2026): What next? card; shelves Set aside (72 started books leave Not read yet), Bought twice (7), Gave up; own stars and note; Next in the series; series note "3 of 7" from a public catalogue; covers by title and author; sort and filter on a shelf page; Share check and barcode scan (iPhone and iPad); wish-list prices; Kindle list from Amazon's page saved as PDF; no second copy of a store from a repeated list file; file format 2.
 - 0.6 (18 Nov 2026): the big filter (funnel button opens the page "All books" with menus above the books: Store, Kind, Language, Status, More = Your stars, Bought, Finished, Tags, Lock-free; ticks, books change at once, Clear, Keep); filters kept as shelves of his own; author's page and series' page (missing part to the wish list); his own tags (book page, search, filter); Choose your shelves (show, hide, order); Surprise me on What next?; progress bar on covers and "n % read"; correct title, author, series of a book; what a book is about (Apple Books, Open Library); What changed (last 40 reads of the stores' lists); reading notes (kinds of his own; Type, Speak, Photo of the page; notebook; Share a note, send all notes of a book as one page); file format 4 (a device on 0.5 is read-only).
+- 0.7 (18 Nov 2026): search in the notebook; quote of the day; "Just finished" card (stars and a few words); "Send these" in the notebook; shelf Read + listen; cover wall; library check (LIBRIS) on a wish-list book; the tour now covers 0.4 to 0.7. The shelf file stays at format 4; nothing new is stored in it.
 - Look picks (18 Nov 2026): the owner chose look 2 "menus above the books" for the big filter and look 4 "one notebook" (the pen at the right end of the "Reading notes" line, not in the top bar) from one numbered picture.
 - 0.5 (17 Nov 2026): Up next list (button on the book page, shelf under Reading now, Change order, first in What next?); Your reading (Year with goals and finishing days, Numbers); language of every book with a careful title guess, set by hand, filter on a shelf page; Home Screen widget "Reading" (iPhone, iPad); device search finds the books; own EPUB folders packed into one .epub when sent from the Mac; series length by hand; Save the shelf as a list (PDF, Table); file format 3 (a device on 0.4 is read-only); the app's code is public on GitHub with automatic tests on every change (no real titles; sample and tests use made-up books).
 - 0.4 (17 Nov 2026): wide layout on iPad and Mac (window 760 points or more): shelves on the left, the chosen book's page on the right (38 % of the width, 340 to 440 points); narrow windows and iPhone unchanged; identifiers `book-pane`, `book-pane-empty`; no data change.

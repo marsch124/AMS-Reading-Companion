@@ -1,4 +1,5 @@
 import ReadingCore
+import AMSIcons
 import SwiftUI
 
 /// One reading note as a row: the dot of its kind, the words, and a small line saying what and when.
@@ -69,6 +70,8 @@ struct NotesPage: View {
     /// The kind shown; nil = all.
     @State private var kind: String?
     @State private var draft: NoteDraft?
+    /// The words looked for in the notes.
+    @State private var words = ""
 
     private let colour = "orange"
 
@@ -124,7 +127,6 @@ struct NotesPage: View {
     @ViewBuilder
     private func notebook(_ notes: [ReadingNote]) -> some View {
         let kinds = model.data.kindsInUse()
-        let known = Set(model.data.noteKinds.map(\.id))
         ChipFlow {
             Chip(title: "All", count: notes.count, colour: colour, on: kind == nil) { kind = nil }
                 .accessibilityIdentifier("notes-kind-all")
@@ -137,9 +139,39 @@ struct NotesPage: View {
                 }
             }
         }
-        let shown = notes.filter { note in
-            guard let kind else { return true }
-            return kind.isEmpty ? !known.contains(note.kind) : note.kind == kind
+        let shown = model.data.notes(holding: words, kind: kind)
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                AppMarkView(.search, size: 15, colour: .secondary)
+                TextField("Search your notes", text: $words)
+                    .textFieldStyle(.plain)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("notes-search")
+                if !words.isEmpty {
+                    Button("Clear") { words = "" }
+                        .buttonStyle(.plain)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.text(colour))
+                        .accessibilityIdentifier("notes-search-clear")
+                }
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(Theme.plate, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            if !shown.isEmpty {
+                ShareLink(item: model.data.notesPage(shown, heading: sendHeading), subject: Text(sendHeading)) {
+                    Text("Send these")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.text(colour))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("notes-send-shown")
+            }
+        }
+        if shown.isEmpty {
+            Text(words.isEmpty ? "No note of this kind." : "No note holds “\(words)”.")
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("notes-none-found")
         }
         ForEach(shown) { note in
             Button { draft = NoteDraft(bookID: note.bookID, noteID: note.id) } label: {
@@ -152,6 +184,14 @@ struct NotesPage: View {
             .disabled(model.readOnly)
             .accessibilityIdentifier("notes-note-\(note.id)")
         }
+    }
+
+    /// The heading of the page "Send these" makes: the kind that shows, and the words looked for.
+    private var sendHeading: String {
+        var head = kind.map { model.data.kind($0).name } ?? "Reading notes"
+        let asked = words.trimmingCharacters(in: .whitespaces)
+        if !asked.isEmpty { head += " · “\(asked)”" }
+        return head
     }
 
     // MARK: Book by book

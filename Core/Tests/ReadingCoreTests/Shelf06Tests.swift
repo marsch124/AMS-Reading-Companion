@@ -237,7 +237,7 @@ final class Shelf06Tests: XCTestCase {
         let keys = choices.map(\.key)
         XCTAssertEqual(keys.count, Set(keys).count)
         XCTAssertEqual(Set(keys), ["reading", "upnext", "saved-f1", "unread", "series", "aside", "lockfree", "audio", "twice",
-                                   "finished", "gaveup", "wish"])
+                                   "pairs", "finished", "gaveup", "wish"])
         XCTAssertEqual(choices.first { $0.key == "series" }?.count, 2)
         XCTAssertEqual(choices.first { $0.key == "saved-f1" }?.name, "All Kobo")
         XCTAssertEqual(choices.first { $0.key == "wish" }?.hidden, true)

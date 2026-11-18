@@ -172,9 +172,11 @@ struct RootView: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     if model.readOnly { newerNote }
                     if model.data.owned.isEmpty { emptyNote }
+                    if let done = model.justFinished { FinishedCard(book: done).id(done.id) }
                     let ideas = model.data.whatNext()
                     if !ideas.isEmpty { WhatNextCard(ideas: ideas) }
                     if !model.data.owned.isEmpty { notesLine }
+                    if let quote = model.data.quoteOfDay() { QuoteLine(note: quote) }
                     ForEach(model.data.mainShelves()) { shelf in
                         ShelfRow(shelf: shelf, coverWidth: coverWidth)
                     }
@@ -517,6 +519,7 @@ struct ShelfAllView: View {
     @State private var ordering = ProcessInfo.processInfo.arguments.contains("-order")
     @State private var settingLength = ProcessInfo.processInfo.arguments.contains("-length")
     @State private var changingKept = false
+    @AppStorage(CoverWall.key) private var wall = false
 
     var body: some View {
         let shelf = model.data.shelf(shelfID)
@@ -531,16 +534,20 @@ struct ShelfAllView: View {
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("filter-count")
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 92, maximum: 120), spacing: 10, alignment: .top)], spacing: 12) {
-                    ForEach(books) { book in
-                        VStack(alignment: .leading, spacing: 3) {
-                            BookTile(book: book, width: 92)
-                            Text(book.title)
-                                .font(.caption)
-                                .lineLimit(2)
-                                .frame(width: 92, alignment: .leading)
+                if wall {
+                    CoverWall(books: books, colour: shelf?.colour ?? "grey").padding(.horizontal, -12)
+                } else {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 92, maximum: 120), spacing: 10, alignment: .top)], spacing: 12) {
+                        ForEach(books) { book in
+                            VStack(alignment: .leading, spacing: 3) {
+                                BookTile(book: book, width: 92)
+                                Text(book.title)
+                                    .font(.caption)
+                                    .lineLimit(2)
+                                    .frame(width: 92, alignment: .leading)
+                            }
+                            .accessibilityIdentifier("all-\(book.id)")
                         }
-                        .accessibilityIdentifier("all-\(book.id)")
                     }
                 }
             }
@@ -549,6 +556,7 @@ struct ShelfAllView: View {
         .navigationTitle(shelf?.title ?? "Shelf")
         .accessibilityIdentifier("shelf-all-\(shelfID)")
         .toolbar {
+            ToolbarItem(placement: .primaryAction) { WallToggle(wall: $wall, colour: shelf?.colour ?? "grey") }
             ToolbarItem(placement: .primaryAction) {
                 if !model.readOnly, shelfID == "upnext" {
                     Button("Change order") { ordering = true }

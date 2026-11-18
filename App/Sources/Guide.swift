@@ -56,7 +56,7 @@ enum Guide {
         ]),
         Part(title: "The shelves", text: [
             "The main screen is a stack of shelves. Each has a heading in its own colour and a row of covers that scrolls sideways. A book can stand on several shelves. Empty shelves are left out, except the Wish list.",
-            "The usual order from the top: Reading now, Up next, your own shelves (see The big filter), Not read yet, each series, Set aside, Lock-free, Audiobooks, Bought twice, Finished, Gave up, Wish list. You can hide shelves and change the order (see Choose your shelves).",
+            "The usual order from the top: Reading now, Up next, your own shelves (see The big filter), Not read yet, each series, Set aside, Lock-free, Audiobooks, Bought twice, Read + listen, Finished, Gave up, Wish list. You can hide shelves and change the order (see Choose your shelves).",
             "Reading now (purple): the books you opened lately. A book you set to Reading yourself always stays here.",
             "Up next (indigo): the books you chose to read next, in your order, with the count, for example “Up next · 3”. See Up next.",
             "Not read yet (red): newest purchase first, with the count, for example “Not read yet · 84”. Books you started are not here any more.",
@@ -64,11 +64,28 @@ enum Guide {
             "Set aside (brown): books you started but have not opened in the 90 days before your latest reading. Before, they stood under Not read yet. Reading now and Set aside never hold the same book.",
             "Lock-free (teal). Audiobooks (amber).",
             "Bought twice (pink): every book you own to read, or to listen to, in two stores, for example Kindle and Apple Books. Your own files do not count.",
+            "Read + listen: the titles you own both to read (an ebook or your own file) and to listen to (an audiobook), in whatever stores. This is not the same as Bought twice: there the same kind stands in two stores. Here the two kinds are different. A book's page says “You own this to read and to listen to”.",
             "Finished (grey): most recent first. Gave up (grey): books you started and gave up on. Wish list (blue): shown even when empty, unless you hide it.",
             "Your own shelves (sea blue) are filters you kept. Each shows its name and how many books fit, for example “Summer reads · 12”.",
             "A started book carries a thin bar along the bottom of its cover that shows how far you have read. It is there only for a book that is Reading now or Set aside, and only when the store reports the progress (Apple Books and Kobo do, Kindle does not). The Mac reads it with the lists.",
             "Tap a shelf's heading to see all its books in a grid. There you can narrow the books down and put them in another order (see Sort and filter). On a series shelf’s page, “All parts” opens the series’ page (see The series’ page). On a shelf of your own, “Change” changes the filter behind it.",
             "On iPhone, a tap on a cover opens the book's page and Back returns to the shelves. On iPad and Mac with a wide window the book shows beside the shelves (see On iPad and Mac).",
+        ]),
+        Part(title: "Quote of the day", text: [
+            "Under the “Reading notes” line on the main screen stands one of your own notes of the kind Quote, with the book it comes from.",
+            "It is the same quote all day. The next day shows the next quote, in turn, so every quote gets its day.",
+            "Tap it to open the note. When you have written no quote, there is no line.",
+        ]),
+        Part(title: "Just finished", text: [
+            "When a book became Finished within the last 14 days and has no stars yet, a card stands on top of the main screen: “Just finished · title. How was it?”.",
+            "It has five stars, one line for a few words, “Save” and “Not now”. The stars and the words are saved as the book's “Stars and note”, the same as on the book's page (see Your stars and note).",
+            "“Not now” is remembered on that device only. Giving stars to the book, on any device, ends the question on all of them.",
+            "Only one card shows at a time, for the book you finished last.",
+        ]),
+        Part(title: "Cover wall", text: [
+            "On a shelf's page, and on the page “All books” of the big filter, one small button in the top bar switches between the list and a wall.",
+            "The wall is a full grid of covers with no words. Tap a cover to open the book.",
+            "The device remembers your choice. It is one switch for all shelves.",
         ]),
         Part(title: "On iPad and Mac", text: [
             "When the window is wide (760 points or more), the screen has two parts side by side. Left: the shelves, with the What next? card, the coloured headings, the rows of covers and the buttons at the top (including the button for Your reading). On the Mac the filter button is among the buttons in the top bar; on iPad and iPhone it stands at the top left. The pen for a new note stands on the “Reading notes” line. Right: the page of the book you tapped.",
@@ -162,6 +179,7 @@ enum Guide {
             "On the page of a book you started, “Gave up on it” moves it from Set aside (or Reading now) to Gave up. “Pick it up again” brings it back.",
             "One Open button for each store starts that store's app at the book. If the app cannot jump to the book, it opens the store's app and you find the book there. Opening is known to work for Kindle on the Mac. Apple Books, Kobo and opening from iPhone or iPad have not been tried yet.",
             "Further down: your tags (see Tags), your reading notes (see Reading notes) and, when a catalogue knows it, what the book is about (see What it is about).",
+            "A book you own to read and to listen to says “You own this to read and to listen to”.",
             "At the bottom, “Correct title, author or series” (see Correct a book).",
             "Remove from shelf asks first. It is there for wishes, books you added by hand and Kindle books. An Apple Books or Kobo book would come back at the next read, so it has no remove button.",
         ]),
@@ -210,6 +228,8 @@ enum Guide {
             "Cancel closes without saving. Save keeps the note.",
             "Your notes show on the book’s page under “Reading notes · 3”, with “New note”. They also stand in the notebook: tap the line “Reading notes · 7” under What next? on the main screen. It holds every note, the newest first. The kinds on top (with how many notes each) narrow it down; “All” shows all again. “New note” starts one.",
             "Tap a note to change it, share it or remove it. Remove note asks first. You can also move a note to another book there.",
+            "The notebook has a search field on top. It finds the notes that hold every word you type: in the note itself, in its page, in its kind's name, or in the title or author of its book. Capital letters and accents do not matter. The search works together with the kinds on top (All, Quote, Thought, To do, Word to look up and your own).",
+            "“Send these” in the notebook sends exactly the notes that show, after the search and the kind, as one tidy page, book by book. Each note has its kind in front and its page. It goes out by Share to any app, for example PARAGON.",
             "Share sends one note to any app, for example PARAGON. A quote goes in quotation marks, and below it stands the kind, the book, the author and the page.",
             "“Send all notes as one page” at the bottom of a book’s notes sends every note of that book as one tidy page, kind by kind, the oldest first. Quotes stand as quotes. A notes app shows the headings as headings.",
             "Your own kinds: Settings › Kinds of notes, or “Your own…” on the note’s page. There you add a kind with its name, rename any kind by typing over its name, or remove it with the red mark (it asks first). The four start kinds can be renamed or removed too. The notes of a removed kind stay and stand under “Other”. The last kind that is left cannot be removed, because a note needs a kind.",
@@ -234,6 +254,7 @@ enum Guide {
             "“Back to the usual order” shows every shelf again in the order of the start. Cancel closes without saving. Save keeps your choice and order.",
             "A hidden shelf keeps its books. It is only not shown on the main screen. The Wish list can be hidden too.",
             "A shelf of your own that you keep later stands near the top, until you move it.",
+            "Read + listen can be hidden or moved here like the others.",
             "The choice and order travel between your devices. If two devices changed them, the newer one wins whole.",
         ]),
         Part(title: "What changed", text: [
@@ -279,6 +300,12 @@ enum Guide {
             "When a wished book later turns up in a store's list, it moves from the Wish list to the shelf by itself.",
             "A part of a series that you do not own can be put on the wish list with one tap on the series’ page (see The series’ page).",
         ]),
+        Part(title: "At the library?", text: [
+            "On the page of a wish-list book, “At the library?” asks Sweden's national library catalogue (LIBRIS) whether libraries in Sweden have the title. It asks when you open the page.",
+            "It shows in which forms: paper book, e-book or audiobook. It does not tell which library has it; “Open at the library” opens the catalogue's page for the title, and that page lists the libraries.",
+            "It tells that libraries in Sweden have it, not which one; the catalogue's page lists them. Only the title and the author are sent. When the catalogue cannot be reached, the app says so. It never remembers that as “not there”.",
+            "Not yet tried on your real wish list.",
+        ]),
         Part(title: "Settings", text: [
             "Open Settings with the cog button. It holds How it works, What's new, three choices under “Your shelf”, the lists and the version line.",
             "Under “Your shelf”: “Choose your shelves” (see Choose your shelves), “Kinds of notes” (see Reading notes) and “What changed” (see What changed).",
@@ -300,6 +327,7 @@ enum Guide {
             "What leaves your devices: for covers, series and prices, a book's title and author are sent to public book catalogues: Apple Books (iTunes Search), Open Library and Wikidata. For a barcode scan, the number is sent to Open Library and, if needed, Apple Books. Nothing else is sent, and never your whole list.",
             "Since 0.6, when you open a book’s page, its title and author are also sent to Apple Books and, if needed, Open Library, to ask what the book is about. Nothing else is sent. The answer is kept in your shelf file, so no device asks twice. When nothing is found, the app asks again after 30 days.",
             "Your reading notes, tags and kept shelves are never sent anywhere. Speaking a note and reading the words from a photo of a page happen on the device itself where the device can do so (see Reading notes).",
+            "Since 0.7, when you open the page of a wish-list book, its title and author are sent to LIBRIS, Sweden's national library catalogue. Nothing else is sent. Nothing new is kept in the shelf file in 0.7: it keeps format 4. The quote of the day, the search in the notes and the cover wall use what is already there.",
             "Cover pictures are also fetched from the stores' picture servers, as before.",
             "Kobo and Kindle prices are not asked for. Those two links open in your browser.",
             "The app asks a series catalogue once per series, and again after 60 days. A catalogue does not know every book. When it knows nothing, the app shows what it showed before.",
@@ -307,6 +335,22 @@ enum Guide {
     ]
 
     static let news: [Release] = [
+        Release(version: "0.7", date: "18 November 2026", items: [
+            "New: search your notes. The notebook (Reading notes) has a search field on top. It finds the notes that hold every word you type: in the note itself, in its page, in its kind's name, or in the title or author of its book. Capital letters and accents do not matter. It works together with the kinds on top: All, Quote, Thought, To do, Word to look up and your own. Before, you could only narrow the notes down by kind.",
+            "New: quote of the day. The main screen shows one of your own notes of the kind Quote, under the “Reading notes” line, with the book it is from. It is the same quote all day, and the next day shows the next one, in turn, so every quote gets its day. Tap it to open the note. When you have written no quote, there is no line.",
+            "New: the “Just finished” card. When a book became Finished within the last 14 days and has no stars yet, a card stands on top of the main screen: “Just finished · title. How was it?”. It has five stars, one line for a few words (saved as the book's note, the same “Stars and note” as on the book's page), “Save” and “Not now”. “Not now” is remembered on that device only. Giving stars on any device ends the question everywhere. Only one card shows at a time, for the book you finished last.",
+            "New: “Send these” in the notebook. It sends exactly the notes that show, after the search and the kind, as one tidy page, book by book. Each note has its kind in front and its page. It goes out by Share to any app, for example PARAGON. Before, you could send one note, or all the notes of one book.",
+            "New: the shelf “Read + listen”. It holds the titles you own both to read (an ebook or your own file) and to listen to (an audiobook), in whatever stores. It is not “Bought twice”, which stays as it was: the same kind in two stores. A book's page says “You own this to read and to listen to”. You can hide or move the shelf in Settings › Choose your shelves, like the others.",
+            "New: the cover wall. On a shelf's page, and on the page “All books” of the big filter, one small button in the top bar switches between the list and a wall: a full grid of covers with no words. Tap a cover to open the book. The device remembers your choice. It is one switch for all shelves.",
+            "New: “At the library?”. On the page of a wish-list book it asks Sweden's national library catalogue (LIBRIS) whether libraries have the title. It shows in which forms: paper book, e-book or audiobook. The button “Open at the library” opens the catalogue's page for the title. It tells that libraries in Sweden have it, not which one; the catalogue's page lists them. Only the title and the author are sent. When the catalogue cannot be reached, the app says so, and nothing is remembered as “not there”. The exact words may be changed later.",
+            "Changed: the main screen. A card may stand on top (Just finished), the quote of the day stands under the “Reading notes” line, and the shelf Read + listen stands after Bought twice in the usual order.",
+            "Changed: the page of a shelf and of “All books” have a new small button in the top bar for the cover wall.",
+            "Changed: Settings › Choose your shelves lists Read + listen too.",
+            "Changed: the tour (the course) now covers versions 0.4 to 0.7.",
+            "No change for safety this time: the shelf file keeps format 4, and nothing new is stored in it. A device that still has 0.6 keeps working with it.",
+            "What leaves your devices, new in 0.7: for “At the library?”, the title and the author of the wish-list book are sent to LIBRIS. Your notes, quotes and stars are never sent anywhere.",
+            "Not tried yet: “At the library?” on your real wish list, and the cover wall on an iPad.",
+        ]),
         Release(version: "0.6", date: "18 November 2026", items: [
             "New: the big filter. A funnel button on the main screen (top left on iPhone and iPad, in the top bar on the Mac) opens the page “All books” at once: every book as covers, with one row of small menus above them: Store, Kind, Language, Status and More (Your stars, Bought, Finished, Tags and Lock-free). Tick what you want; several ticks are fine. Inside one group one tick is enough; across groups all must fit. The books change at once, and a line says “42 of 469 books”. Wishes only come along when you tick Wish. Before, you could narrow down one shelf at a time, by store, kind, language and order.",
             "New: the menus above the books. A menu with nothing ticked is an outline with its name; with a tick it is full colour and shows your choice (“Kobo +1”, “More · 2”). On iPhone and iPad a menu stays open while you tick; on the Mac it closes after each tick. “Clear” empties all ticks. “Keep” in the top bar keeps the choices as a shelf. A tap on a tag on a book’s page opens this page with that tag ticked.",

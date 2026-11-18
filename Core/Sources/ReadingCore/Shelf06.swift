@@ -399,7 +399,7 @@ extension LibraryData {
 
     private static let fixedShelves: [(key: String, name: String)] = [
         ("reading", "Reading now"), ("upnext", "Up next"), ("unread", "Not read yet"), ("series", "Series"),
-        ("aside", "Set aside"), ("lockfree", "Lock-free"), ("audio", "Audiobooks"), ("twice", "Bought twice"),
+        ("aside", "Set aside"), ("lockfree", "Lock-free"), ("audio", "Audiobooks"), ("twice", "Bought twice"), ("pairs", "Read + listen"),
         ("finished", "Finished"), ("gaveup", "Gave up"), ("wish", "Wish list"),
     ]
 
@@ -720,7 +720,7 @@ extension LibraryData {
 
     // MARK: Sending notes
 
-    private static func noteDay(_ date: Date, calendar: Calendar) -> String {
+    static func noteDay(_ date: Date, calendar: Calendar) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_GB")
         f.calendar = calendar

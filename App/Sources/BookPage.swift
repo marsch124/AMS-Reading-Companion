@@ -55,6 +55,7 @@ struct BookPage: View {
                 if let about = book.about { aboutPart(about) }
                 if let next = model.data.nextInSeries(after: book) { nextRow(next, after: book) }
                 if book.wish { buying(book) }
+                if book.wish { LibraryCheck(book: book).id(book.id) }
                 if !book.copies.isEmpty { copies(book) }
                 if book.isLockFree { sending(book) }
                 if let trouble = model.trouble {
@@ -154,6 +155,12 @@ struct BookPage: View {
                     Text("Owned twice")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.text("red"))
+                }
+                if book.readAndListen {
+                    Text("You own this to read and to listen to")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.text("olive"))
+                        .accessibilityIdentifier("book-pair")
                 }
                 if book.wish {
                     Text("On your wish list")

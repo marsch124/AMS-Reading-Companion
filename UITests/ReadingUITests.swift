@@ -118,4 +118,28 @@ final class ReadingUITests: XCTestCase {
         tap(app, "settings-changes")
         shows(app, "changes-page")
     }
+
+    /// 0.7: the "Just finished" card and the quote of the day stand on the main screen; the notebook searches;
+    /// a shelf's page turns into a wall of covers.
+    func testFinishedCardNotesSearchAndCoverWall() {
+        let app = launch(["-finished"])
+        shows(app, "finished-card")
+        shows(app, "quote-of-day")
+        // "Not now" takes the card away; the next finished book without stars may then ask in its place.
+        for _ in 0..<6 where element(app, "finished-skip").waitForExistence(timeout: 2) { tap(app, "finished-skip") }
+        XCTAssertFalse(element(app, "finished-card").waitForExistence(timeout: 2))
+        tap(app, "open-notes")
+        let field = element(app, "notes-search")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("zzzz")
+        shows(app, "notes-none-found")
+        tap(app, "notes-done")
+
+        let wall = launch(["-shelf", "pairs"])
+        shows(wall, "shelf-all-pairs")
+        tap(wall, "wall-toggle")
+        shows(wall, "cover-wall")
+        tap(wall, "wall-toggle")
+    }
 }

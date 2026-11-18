@@ -177,6 +177,7 @@ struct FilterResultsPage: View {
     @State private var naming = false
     @State private var name = ""
     @State private var keptName: String?
+    @AppStorage(CoverWall.key) private var wall = false
 
     private let colour = "sea"
 
@@ -195,16 +196,20 @@ struct FilterResultsPage: View {
                         .foregroundStyle(Theme.text(colour))
                         .accessibilityIdentifier("results-kept")
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 92, maximum: 120), spacing: 10, alignment: .top)], spacing: 12) {
-                    ForEach(books) { book in
-                        VStack(alignment: .leading, spacing: 3) {
-                            BookTile(book: book, width: 92)
-                            Text(book.title)
-                                .font(.caption)
-                                .lineLimit(2)
-                                .frame(width: 92, alignment: .leading)
+                if wall {
+                    CoverWall(books: books, colour: colour).padding(.horizontal, -12)
+                } else {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 92, maximum: 120), spacing: 10, alignment: .top)], spacing: 12) {
+                        ForEach(books) { book in
+                            VStack(alignment: .leading, spacing: 3) {
+                                BookTile(book: book, width: 92)
+                                Text(book.title)
+                                    .font(.caption)
+                                    .lineLimit(2)
+                                    .frame(width: 92, alignment: .leading)
+                            }
+                            .accessibilityIdentifier("result-\(book.id)")
                         }
-                        .accessibilityIdentifier("result-\(book.id)")
                     }
                 }
             }
@@ -214,6 +219,7 @@ struct FilterResultsPage: View {
         .navigationTitle("All books")
         .accessibilityIdentifier("results-page")
         .toolbar {
+            ToolbarItem(placement: .primaryAction) { WallToggle(wall: $wall, colour: colour) }
             ToolbarItem(placement: .primaryAction) {
                 if !model.readOnly, !filter.isEmpty, keptName == nil {
                     Button("Keep") {

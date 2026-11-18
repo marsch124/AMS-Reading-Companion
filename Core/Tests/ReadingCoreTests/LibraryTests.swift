@@ -194,7 +194,7 @@ final class LibraryTests: XCTestCase {
     func testSampleShowsEveryKindOfShelf() {
         let shelves = LibraryData.sample.shelves()
         XCTAssertEqual(shelves.map(\.id).filter { !$0.hasPrefix("series-") },
-                       ["reading", "upnext", "saved-sample-kobo", "unread", "aside", "lockfree", "audio", "twice", "finished", "gaveup", "wish"])
+                       ["reading", "upnext", "saved-sample-kobo", "unread", "aside", "lockfree", "audio", "twice", "pairs", "finished", "gaveup", "wish"])
         XCTAssertEqual(shelves.filter { $0.id.hasPrefix("series-") }.count, 2)
         XCTAssertTrue(shelves.allSatisfy { !$0.books.isEmpty })
         XCTAssertEqual(shelves.first { $0.id == "series-the lantern cycle" }?.note, "3 of 5 · missing 3 and 5")

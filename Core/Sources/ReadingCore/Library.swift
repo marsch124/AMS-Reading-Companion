@@ -339,6 +339,9 @@ extension LibraryData {
         let twice = owned.filter(\.ownedTwice).sorted(by: byTitle)
         if !twice.isEmpty { out.append(Shelf(id: "twice", title: "Bought twice · \(twice.count)", colour: "pink", note: nil, books: twice)) }
 
+        let both = pairs
+        if !both.isEmpty { out.append(Shelf(id: "pairs", title: "Read + listen · \(both.count)", colour: "olive", note: nil, books: both)) }
+
         let finished = owned.filter { $0.status == .finished }.sorted(by: recent)
         if !finished.isEmpty { out.append(Shelf(id: "finished", title: "Finished · \(finished.count)", colour: "grey", note: nil, books: finished)) }
 
