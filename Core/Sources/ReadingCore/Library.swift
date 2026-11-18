@@ -68,7 +68,10 @@ public struct ImportSummary: Equatable, Sendable {
 extension LibraryData {
     /// The books that show: everything not taken off the shelf.
     public var shown: [Book] { books.filter { !$0.removed } }
-    public var owned: [Book] { shown.filter { !$0.copies.isEmpty } }
+    /// The owned books that stand on the shelves: without the ones put away.
+    public var owned: [Book] { shown.filter { !$0.copies.isEmpty && !$0.putAway } }
+    /// Every owned book, the ones put away too: for "do I own it?".
+    public var ownedAll: [Book] { shown.filter { !$0.copies.isEmpty } }
 
     public func book(_ id: String) -> Book? { books.first { $0.id == id && !$0.removed } }
 
@@ -100,11 +103,17 @@ extension LibraryData {
         }
         guard !items.isEmpty else { return summary }
 
+        // A list that names no collection at all, while more than two of this store's books stood in one, was most
+        // likely read from a half-loaded database: the collections the shelf knows stay. Otherwise the list is the truth.
+        let hadCollections = books.flatMap(\.copies).filter { $0.source == source && !$0.collections.isEmpty }.count
+        let knowsCollections = items.contains { !$0.collections.isEmpty } || hadCollections <= 2
         var seen = Set<String>()
         for item in items {
-            let copy = BookCopy(store: item.store, storeID: item.storeID, kind: item.kind, lockFree: item.lockFree,
-                                filePath: item.filePath, purchased: item.purchased?.wholeSeconds, source: source)
+            var copy = BookCopy(store: item.store, storeID: item.storeID, kind: item.kind, lockFree: item.lockFree,
+                                filePath: item.filePath, purchased: item.purchased?.wholeSeconds, source: source,
+                                collections: LibraryData.cleanTags(item.collections))
             seen.insert(copy.id)
+            if !knowsCollections, let old = books.lazy.flatMap(\.copies).first(where: { $0.id == copy.id }) { copy.collections = old.collections }
 
             if let i = books.firstIndex(where: { b in b.copies.contains { $0.id == copy.id } }) {
                 // Known copy. A book the owner took off the shelf stays off.
@@ -219,7 +228,7 @@ extension LibraryData {
 
     /// The owned book with this title, if there is one: the check before buying or wishing.
     public func ownedMatch(title: String, author: String) -> Book? {
-        owned.first { Self.isSame($0, title: title, author: author) }
+        ownedAll.first { Self.isSame($0, title: title, author: author) }
     }
 
     /// Whether a book on the shelf is this title: by the words it shows, or (a book the owner corrected)
@@ -307,9 +316,15 @@ extension LibraryData {
                              note: found.isEmpty ? "No book fits this filter now." : nil, books: found))
         }
 
+        let fresh = newBooks()
+        if !fresh.isEmpty { out.append(Shelf(id: "new", title: "New on the shelf · \(fresh.count)", colour: "mint", note: nil, books: fresh)) }
+
         let unread = owned.filter { $0.status == .unread }
             .sorted { ($0.purchased ?? .distantPast, $1.title) > ($1.purchased ?? .distantPast, $0.title) }
         if !unread.isEmpty { out.append(Shelf(id: "unread", title: "Not read yet · \(unread.count)", colour: "red", note: nil, books: unread)) }
+
+        let waiting = waitingLongest()
+        if !waiting.isEmpty { out.append(Shelf(id: "waiting", title: "Waiting longest · \(waiting.count)", colour: "rust", note: nil, books: waiting)) }
 
         var members: [String: [Book]] = [:]
         var names: [String: String] = [:]
@@ -382,7 +397,8 @@ extension LibraryData {
               let number = book.seriesNumber, number >= 1, number < 100_000, number == number.rounded() else { return nil }
         let key = BookMatch.plain(name)
         let next = Int(number) + 1
-        let others = owned.filter { $0.id != book.id && BookMatch.plain($0.series ?? "") == key }
+        // A part that is put away is still owned: it must not be offered as missing.
+        let others = ownedAll.filter { $0.id != book.id && BookMatch.plain($0.series ?? "") == key }
         if let have = others.first(where: { $0.seriesNumber == Double(next) }) {
             return SeriesNext(number: next, title: have.title, owned: have)
         }
@@ -410,7 +426,7 @@ extension LibraryData {
         let done = owned.filter { $0.status == .finished && $0.series != nil }
             .sorted { ($0.lastOpened ?? $0.changed) > ($1.lastOpened ?? $1.changed) }
         for book in done {
-            if let next = nextInSeries(after: book), let have = next.owned, have.status == .unread {
+            if let next = nextInSeries(after: book), let have = next.owned, have.status == .unread, !have.putAway {
                 add(have, "Next in \(book.series ?? "the series"), after “\(book.title)”")
             }
         }
@@ -487,7 +503,7 @@ extension LibraryData {
         let words = BookMatch.plain(query).split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
         guard !words.isEmpty else { return [] }
         return shown.filter { book in
-            let hay = BookMatch.plain(([book.title, book.author, book.series ?? "", book.note ?? ""] + book.tags).joined(separator: " "))
+            let hay = BookMatch.plain(([book.title, book.author, book.series ?? "", book.note ?? ""] + book.allTags).joined(separator: " "))
             return words.allSatisfy { hay.contains($0) }
         }
         .sorted { ($0.wish ? 1 : 0, BookMatch.titleKey($0.title)) < ($1.wish ? 1 : 0, BookMatch.titleKey($1.title)) }

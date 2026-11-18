@@ -12,10 +12,11 @@ struct SettingsView: View {
     @State private var listType: UTType = .pdf
     @State private var savingList = false
     @State private var listNote: String?
-    // For pictures: `-page shelves`, `-page kinds` start with that page open (with `-settings`).
+    // For pictures: `-page shelves`, `-page kinds`, `-page putaway` start with that page open (with `-settings`).
     @State private var choosingShelves = ProcessInfo.processInfo.arguments.contains("shelves")
     @State private var editingKinds = ProcessInfo.processInfo.arguments.contains("kinds")
     @State private var showingChanges = false
+    @State private var showingPutAway = ProcessInfo.processInfo.arguments.contains("putaway")
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -35,9 +36,14 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button("Choose your shelves") { choosingShelves = true }
+                    Button("Main screen and shelves") { choosingShelves = true }
                         .foregroundStyle(Theme.text("purple"))
                         .accessibilityIdentifier("settings-shelves")
+                    if !model.data.putAwayBooks.isEmpty {
+                        Button("Put away · \(model.data.putAwayBooks.count)") { showingPutAway = true }
+                            .foregroundStyle(Theme.text("purple"))
+                            .accessibilityIdentifier("settings-putaway")
+                    }
                     Button("Kinds of notes") { editingKinds = true }
                         .foregroundStyle(Theme.text("orange"))
                         .accessibilityIdentifier("settings-kinds")
@@ -130,6 +136,7 @@ struct SettingsView: View {
             .sheet(isPresented: $choosingShelves) { ShelvesChoicePage() }
             .sheet(isPresented: $editingKinds) { NoteKindsPage() }
             .sheet(isPresented: $showingChanges) { ChangesPage() }
+            .sheet(isPresented: $showingPutAway) { PutAwayPage() }
             .navigationTitle("Settings")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

@@ -123,6 +123,22 @@ extension LibraryData {
             ChangeEntry(date: day(310), store: "kobo", came: ["Glass Tide"], left: []),
             ChangeEntry(date: day(296), store: "apple", came: ["Winter Lighthouse"], left: ["A Year of Borrowed Light"]),
         ]
+        // Version 0.8: a store's collection on a copy, a To do that is done, a manual put away, a book that has
+        // waited since 2024, and one that came a few days ago (the only date here that moves with today).
+        if let i = data.books.firstIndex(where: { $0.id == "kobo:k-salt" }) { data.books[i].copies[0].collections = ["Book club"] }
+        if let i = data.books.firstIndex(where: { $0.id == "kobo:k-glass" }) { data.books[i].copies[0].collections = ["Book club"] }
+        data.setDone(true, note: "n7", now: day(260))
+        data.books.append(Book(id: "kobo:k-manual", title: "Reader Handbook", author: "Kestrel Devices",
+                               copies: [BookCopy(store: .kobo, storeID: "k-manual", purchased: day(20), source: .kobo)],
+                               added: day(20), changed: day(20)))
+        data.setPutAway(true, of: ["kobo:k-manual"], now: day(21))
+        data.books.append(Book(id: "kindle:B0SAMPLE09", title: "The Long Shore Walk", author: "Odell Marchetti",
+                               copies: [BookCopy(store: .kindle, storeID: "B0SAMPLE09", purchased: day(-500), source: .kindle)],
+                               added: day(-500), changed: day(-500), language: "en"))
+        let lately = Date().addingTimeInterval(-4 * 86_400)
+        data.books.append(Book(id: "apple:a-new", title: "Tide Tables for Beginners", author: "Mira Valdane",
+                               copies: [BookCopy(store: .apple, storeID: "a-new", purchased: lately, source: .apple)],
+                               added: lately, changed: lately, language: "en"))
         return data
     }
 }

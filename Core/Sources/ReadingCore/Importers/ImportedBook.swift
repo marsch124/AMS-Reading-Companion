@@ -28,6 +28,8 @@ public struct ImportedBook: Equatable, Sendable {
     public var lastOpened: Date?
     /// Lowercase two-letter language code ("sv", "de", "en"); nil when unknown.
     public var language: String?
+    /// The store's own collections the book stands in (never the built-in ones like "Books" or "Finished").
+    public var collections: [String] = []
 
     public init(store: BookStore, storeID: String, title: String, author: String = "",
                 kind: BookKind = .ebook, isSample: Bool = false, lockFree: Bool = false,

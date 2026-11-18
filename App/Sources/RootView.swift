@@ -108,7 +108,7 @@ struct RootView: View {
         .sheet(isPresented: $model.searchShown) { SearchView() }
         .sheet(isPresented: $model.addShown) { AddBookPage() }
         .sheet(isPresented: $model.scanShown) { ScanView() }
-        .sheet(isPresented: $model.yearShown) { YearPage(start: model.yearOnNumbers ? .numbers : .year) }
+        .sheet(isPresented: $model.yearShown) { YearPage(start: model.yearOnAuthors ? .authors : (model.yearOnNumbers ? .numbers : .year)) }
         .sheet(isPresented: $model.notesShown) { NotesPage() }
         .sheet(item: $model.noteDraft) { NoteEditPage(draft: $0) }
         .sheet(isPresented: $changesShown) { ChangesPage() }
@@ -171,16 +171,16 @@ struct RootView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     if model.readOnly { newerNote }
-                    if model.data.owned.isEmpty { emptyNote }
-                    if let done = model.justFinished { FinishedCard(book: done).id(done.id) }
+                    if model.data.ownedAll.isEmpty { emptyNote }
+                    if model.data.shows(.finished), let done = model.justFinished { FinishedCard(book: done).id(done.id) }
                     let ideas = model.data.whatNext()
-                    if !ideas.isEmpty { WhatNextCard(ideas: ideas) }
-                    if !model.data.owned.isEmpty { notesLine }
-                    if let quote = model.data.quoteOfDay() { QuoteLine(note: quote) }
+                    if !ideas.isEmpty, model.data.shows(.whatNext) { WhatNextCard(ideas: ideas) }
+                    if !model.data.owned.isEmpty, model.data.shows(.notes) { notesLine }
+                    if model.data.shows(.quote), let quote = model.data.quoteOfDay() { QuoteLine(note: quote) }
                     ForEach(model.data.mainShelves()) { shelf in
                         ShelfRow(shelf: shelf, coverWidth: coverWidth)
                     }
-                    if let last = model.data.changes.first { changesLine(last) }
+                    if model.data.shows(.changes), let last = model.data.changes.first { changesLine(last) }
                 }
                 .padding(.vertical, 8)
             }
@@ -237,12 +237,23 @@ struct RootView: View {
     /// One line under "What next?": the notebook with how many notes it holds, and the pen for a new note.
     private var notesLine: some View {
         let notes = model.data.shownNotes
+        let todo = model.data.openTodos
         return HStack(alignment: .center, spacing: 4) {
             Button { model.notesShown = true } label: {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(notes.isEmpty ? "Reading notes" : "Reading notes · \(notes.count)")
                         .font(.headline)
                         .foregroundStyle(Theme.text("orange"))
+                        .lineLimit(1)
+                        .fixedSize()
+                    if !todo.isEmpty {
+                        Text("\(todo.count) to do")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.text("red"))
+                            .lineLimit(1)
+                            .fixedSize()
+                            .accessibilityIdentifier("notes-todo-count")
+                    }
                     Text(notes.first?.text ?? "Nothing noted yet")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -299,7 +310,7 @@ struct RootView: View {
             .accessibilityLabel("Search")
             .accessibilityIdentifier("open-search")
 
-            Button { model.yearOnNumbers = false; model.yearShown = true } label: {
+            Button { model.yearOnNumbers = false; model.yearOnAuthors = false; model.yearShown = true } label: {
                 AppMarkView(.calendar, size: 20)
             }
             .help("Your reading: the year in books, and the numbers")
@@ -520,6 +531,8 @@ struct ShelfAllView: View {
     @State private var settingLength = ProcessInfo.processInfo.arguments.contains("-length")
     @State private var changingKept = false
     @AppStorage(CoverWall.key) private var wall = false
+    @State private var selecting = false
+    @State private var ticked: Set<String> = []
 
     var body: some View {
         let shelf = model.data.shelf(shelfID)
@@ -547,6 +560,7 @@ struct ShelfAllView: View {
                                     .frame(width: 92, alignment: .leading)
                             }
                             .accessibilityIdentifier("all-\(book.id)")
+                            .selectableCover(book.id)
                         }
                     }
                 }
@@ -579,6 +593,7 @@ struct ShelfAllView: View {
                 }
             }
         }
+        .selectMode(books: books, colour: shelf?.colour ?? "grey", selecting: $selecting, ids: $ticked)
         .sheet(isPresented: $ordering) { UpNextOrderPage() }
         .sheet(isPresented: $settingLength) { SeriesLengthPage(name: shelf?.title ?? "") }
         // A kept filter that was removed has no page any more: go back.

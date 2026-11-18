@@ -99,6 +99,8 @@ struct SeriesPage: View {
     @EnvironmentObject private var model: ReadingModel
     let series: String
     @State private var settingLength = false
+    /// The part whose library check is open.
+    @State private var checking: SeriesPart?
 
     private let colour = "green"
 
@@ -138,6 +140,25 @@ struct SeriesPage: View {
         #endif
         .accessibilityIdentifier("series-page")
         .sheet(isPresented: $settingLength) { SeriesLengthPage(name: head.name) }
+        .sheet(item: $checking) { part in
+            SeriesLibrarySheet(key: "series|\(head.name)|\(part.number.map(String.init) ?? part.id)",
+                               title: part.title ?? "", author: head.author)
+        }
+    }
+
+    /// A small link under a row's words, for a part that has a title to ask for.
+    @ViewBuilder
+    private func libraryLink(_ part: SeriesPart) -> some View {
+        if let title = part.title, !title.trimmingCharacters(in: .whitespaces).isEmpty {
+            Button { checking = part } label: {
+                Text("At the library?")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.text(colour))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("series-library-\(part.number.map(String.init) ?? part.id)")
+        }
     }
 
     private func countLine(_ parts: [SeriesPart]) -> String {
@@ -162,6 +183,7 @@ struct SeriesPage: View {
         switch part.kind {
         case .owned, .wish:
             if let book = part.book {
+              HStack(spacing: 8) {
                 BookLink(id: book.id) {
                     HStack(spacing: 10) {
                         badge(part)
@@ -181,6 +203,8 @@ struct SeriesPage: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                if part.kind == .wish { libraryLink(part) }
+              }
             }
         case .missing:
             HStack(spacing: 10) {
@@ -191,6 +215,7 @@ struct SeriesPage: View {
                     Text("Title not known").font(.body).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 6)
+                libraryLink(part)
                 if !model.readOnly, let n = part.number {
                     Button { model.wishSeriesPart(series: head, number: n, title: part.title) } label: {
                         smallFilled("Wish")
@@ -219,5 +244,36 @@ struct SeriesPage: View {
             .padding(.vertical, 4)
             .background(Theme.fill(colour), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(Rectangle())
+    }
+}
+
+/// The library check for one part of a series, in a small sheet.
+private struct SeriesLibrarySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let key: String
+    let title: String
+    let author: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.headline).lineLimit(2)
+            LibraryCheck(key: key, title: title, author: author)
+            HStack {
+                Spacer(minLength: 0)
+                Button("Done") { dismiss() }
+                    .buttonStyle(FilledButton(colour: "green"))
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("series-library-done")
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("series-library-sheet")
+        #if os(macOS)
+        .frame(width: 400)
+        #else
+        .presentationDetents([.height(300), .large])
+        #endif
     }
 }

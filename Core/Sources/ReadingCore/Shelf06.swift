@@ -19,14 +19,16 @@ public struct ReadingNote: Codable, Equatable, Sendable, Identifiable {
     public var changed: Date
     /// Thrown away. Kept as a marker so another device does not bring it back.
     public var removed: Bool
+    /// Ticked off (a To do that is done).
+    public var done: Bool
 
     public init(id: String, bookID: String, text: String, kind: String, page: String? = nil,
-                made: Date = Date(), changed: Date = Date(), removed: Bool = false) {
+                made: Date = Date(), changed: Date = Date(), removed: Bool = false, done: Bool = false) {
         self.id = id; self.bookID = bookID; self.text = text; self.kind = kind; self.page = page
-        self.made = made; self.changed = changed; self.removed = removed
+        self.made = made; self.changed = changed; self.removed = removed; self.done = done
     }
 
-    enum CodingKeys: String, CodingKey { case id, bookID, text, kind, page, made, changed, removed }
+    enum CodingKeys: String, CodingKey { case id, bookID, text, kind, page, made, changed, removed, done }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -38,6 +40,7 @@ public struct ReadingNote: Codable, Equatable, Sendable, Identifiable {
         made = (try? c.decode(Date.self, forKey: .made)) ?? Date(timeIntervalSince1970: 0)
         changed = (try? c.decode(Date.self, forKey: .changed)) ?? Date(timeIntervalSince1970: 0)
         removed = (try? c.decode(Bool.self, forKey: .removed)) ?? false
+        done = (try? c.decode(Bool.self, forKey: .done)) ?? false
     }
 }
 
@@ -295,7 +298,7 @@ extension LibraryData {
         var counts: [String: Int] = [:]
         var names: [String: String] = [:]
         for book in shown {
-            for tag in book.tags {
+            for tag in book.allTags {
                 let key = Self.tagKey(tag)
                 counts[key, default: 0] += 1
                 names[key] = names[key] ?? tag
@@ -322,7 +325,7 @@ extension LibraryData {
     /// The books that fit a filter, by title. Wishes only come along when "Wish" is chosen under Status.
     public func books(matching filter: BookFilter, calendar: Calendar = .current) -> [Book] {
         let current = currentReader()
-        let pool = filter.states.contains(.wish) ? shown.filter { !$0.copies.isEmpty || $0.wish } : owned
+        let pool = filter.states.contains(.wish) ? shown.filter { (!$0.copies.isEmpty || $0.wish) && !$0.putAway } : owned
         return pool.filter { book in
             if !filter.states.isEmpty, !filter.states.contains(state(of: book, current: current)) { return false }
             if !filter.stores.isEmpty, !book.copies.contains(where: { filter.stores.contains($0.store) }) { return false }
@@ -342,7 +345,7 @@ extension LibraryData {
                 guard let day = book.finishedDay, filter.finishedYears.contains(calendar.component(.year, from: day)) else { return false }
             }
             if filter.lockFree, !book.isLockFree { return false }
-            if !filter.tags.isEmpty, !book.tags.contains(where: { filter.tags.contains(Self.tagKey($0)) }) { return false }
+            if !filter.tags.isEmpty, !book.allTags.contains(where: { filter.tags.contains(Self.tagKey($0)) }) { return false }
             return true
         }
         .sorted { (BookMatch.titleKey($0.title), $0.id) < (BookMatch.titleKey($1.title), $1.id) }
@@ -398,7 +401,8 @@ extension LibraryData {
     public static func orderKey(_ shelfID: String) -> String { shelfID.hasPrefix("series-") ? "series" : shelfID }
 
     private static let fixedShelves: [(key: String, name: String)] = [
-        ("reading", "Reading now"), ("upnext", "Up next"), ("unread", "Not read yet"), ("series", "Series"),
+        ("reading", "Reading now"), ("upnext", "Up next"), ("new", "New on the shelf"), ("unread", "Not read yet"),
+        ("waiting", "Waiting longest"), ("series", "Series"),
         ("aside", "Set aside"), ("lockfree", "Lock-free"), ("audio", "Audiobooks"), ("twice", "Bought twice"), ("pairs", "Read + listen"),
         ("finished", "Finished"), ("gaveup", "Gave up"), ("wish", "Wish list"),
     ]
@@ -524,7 +528,7 @@ extension LibraryData {
         // first name, where both are written with one.
         let initial = Self.firstInitial(author)
         return shown.filter { book in
-            guard BookMatch.authorKey(book.author) == key else { return false }
+            guard !book.putAway, BookMatch.authorKey(book.author) == key else { return false }
             let other = Self.firstInitial(book.author)
             return initial == nil || other == nil || initial == other
         }.sorted {

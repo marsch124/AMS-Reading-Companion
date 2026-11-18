@@ -123,6 +123,10 @@ struct SearchView: View {
                 }
                 HStack(spacing: 8) {
                     StoreMarks(book: book)
+                    if book.putAway {
+                        Text("Put away").font(.footnote.weight(.semibold)).foregroundStyle(Theme.text("brown"))
+                            .accessibilityIdentifier("result-putaway-\(book.id)")
+                    }
                     if book.wish {
                         Text("Wish").font(.footnote.weight(.semibold)).foregroundStyle(Theme.text("blue"))
                     }

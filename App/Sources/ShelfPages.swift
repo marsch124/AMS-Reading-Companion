@@ -4,18 +4,38 @@ import SwiftUI
 
 // Two pages of the main screen's shelves: which shelves show and in what order, and what changed in the stores.
 
-/// "Choose your shelves": tick, hide and move the shelves of the main screen.
+/// "Main screen and shelves": switch the parts of the main screen, tick, hide and move the shelves of the main screen.
 struct ShelvesChoicePage: View {
     @EnvironmentObject private var model: ReadingModel
     @Environment(\.dismiss) private var dismiss
     @State private var rows: [ShelfChoice] = []
     @State private var loaded = false
+    @State private var partsOff: Set<MainPart> = []
 
     private let colour = "purple"
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    // "part-…" as the id: a part named like a shelf (finished) must not be taken for that shelf's row.
+                    ForEach(MainPart.allCases, id: \.partID) { part in
+                        Toggle(part.name, isOn: Binding(
+                            get: { !partsOff.contains(part) },
+                            set: { on in
+                                if on { partsOff.remove(part) } else { partsOff.insert(part) }
+                            }))
+                            .tint(Theme.text(colour))
+                            .disabled(model.readOnly)
+                            .accessibilityIdentifier("part-\(part.rawValue)")
+                    }
+                } header: {
+                    Text("Main screen")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Theme.text(colour))
+                        .textCase(nil)
+                }
+                Section {
                 Text("Ticked shelves show on the main screen, in this order. A hidden shelf keeps its books.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -28,8 +48,14 @@ struct ShelvesChoicePage: View {
                     .buttonStyle(.plain)
                     .disabled(model.readOnly)
                     .accessibilityIdentifier("shelves-reset")
+                } header: {
+                    Text("Shelves")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Theme.text(colour))
+                        .textCase(nil)
+                }
             }
-            .navigationTitle("Choose your shelves")
+            .navigationTitle("Main screen")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -53,6 +79,7 @@ struct ShelvesChoicePage: View {
                             } else {
                                 model.setShelves(order: rows.map(\.key), hidden: rows.filter(\.hidden).map(\.key))
                             }
+                            model.setHiddenParts(MainPart.allCases.filter { partsOff.contains($0) })
                             dismiss()
                         }
                         .buttonStyle(FilledButton(colour: colour))
@@ -66,6 +93,7 @@ struct ShelvesChoicePage: View {
             guard !loaded else { return }
             loaded = true
             rows = model.data.shelfChoices()
+            partsOff = Set(MainPart.allCases.filter { !model.data.shows($0) })
         }
         .accessibilityIdentifier("shelves-page")
         #if os(macOS)
@@ -139,6 +167,7 @@ struct ShelvesChoicePage: View {
         d.setShelves(order: [], hidden: [])
         rows = d.shelfChoices()
         usual = true
+        partsOff = []
     }
 }
 
@@ -227,4 +256,8 @@ struct ChangesPage: View {
     private func more(_ text: String) -> some View {
         Text(text).font(.footnote).foregroundStyle(.secondary).padding(.leading, 20)
     }
+}
+
+private extension MainPart {
+    var partID: String { "part-" + rawValue }
 }

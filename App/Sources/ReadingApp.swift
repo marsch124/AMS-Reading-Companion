@@ -73,6 +73,8 @@ final class ReadingModel: ObservableObject {
     @Published var yearShown = false
     /// For pictures: `-numbers` starts "Your reading" on its Numbers part.
     var yearOnNumbers = false
+    /// For pictures: `-authors` opens Your reading on its Authors part.
+    var yearOnAuthors = false
     /// The Mac only: what the last read of each store's list said when it gave no books.
     @Published var storeTrouble: [String: String] = [:]
     @Published var readingLists = false
@@ -128,7 +130,8 @@ final class ReadingModel: ObservableObject {
         addShown = args.contains("-add")
         scanShown = args.contains("-scan")
         yearOnNumbers = args.contains("-numbers")
-        yearShown = args.contains("-year") || yearOnNumbers
+        yearOnAuthors = args.contains("-authors")
+        yearShown = args.contains("-year") || yearOnNumbers || yearOnAuthors
         if let i = args.firstIndex(of: "-shelf"), i + 1 < args.count { startShelf = args[i + 1] }
         filterShown = args.contains("-filter")
         notesShown = args.contains("-notes")
@@ -168,7 +171,7 @@ final class ReadingModel: ObservableObject {
         }
     }
 
-    private func change(_ edit: (inout LibraryData) -> Void) {
+    func change(_ edit: (inout LibraryData) -> Void) {
         guard !readOnly else { return }
         let before = data
         edit(&data)
@@ -315,7 +318,7 @@ final class ReadingModel: ObservableObject {
             data.noteChange(summary, store: key, first: first)
             // Kindle's Mac list is only its latest sync, so its count is "books on the shelf", not "books in the list".
             let shown = source == .kindle
-                ? data.owned.filter { $0.copies.contains { $0.store == .kindle } }.count
+                ? data.ownedAll.filter { $0.copies.contains { $0.store == .kindle } }.count
                 : count
             if data.imports[key]?.count != shown || !Calendar.current.isDateInToday(data.imports[key]?.date ?? .distantPast) {
                 data.imports[key] = ImportNote(date: Date(), count: shown)
@@ -361,7 +364,7 @@ final class ReadingModel: ObservableObject {
         var summary = ImportSummary()
         change { data in
             summary = data.take(books, source: .kindle, complete: false)
-            let shown = data.owned.filter { $0.copies.contains { $0.store == .kindle } }.count
+            let shown = data.ownedAll.filter { $0.copies.contains { $0.store == .kindle } }.count
             data.imports["kindle"] = ImportNote(date: Date(), count: shown)
         }
         fileNote = "\(books.count) Kindle books in the file: \(summary.added) new on the shelf, \(books.count - summary.added) were already there." + more

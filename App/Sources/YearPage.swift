@@ -3,7 +3,7 @@ import SwiftUI
 
 /// "Your reading": the year in books with a yearly goal, and the shelf counted.
 struct YearPage: View {
-    enum Part: Hashable { case year, numbers }
+    enum Part: Hashable { case year, numbers, authors }
 
     @EnvironmentObject private var model: ReadingModel
     @Environment(\.dismiss) private var dismiss
@@ -14,12 +14,15 @@ struct YearPage: View {
 
     private var thisYear: Int { Calendar.current.component(.year, from: Date()) }
 
+    @State private var path: [Route] = []
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 Picker("Part", selection: $part) {
                     Text("Year").tag(Part.year)
                     Text("Numbers").tag(Part.numbers)
+                    Text("Authors").tag(Part.authors).accessibilityIdentifier("year-part-authors")
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -34,12 +37,26 @@ struct YearPage: View {
                         Text("Your reading")
                             .font(.title2.weight(.bold))
                             .frame(maxWidth: .infinity)
-                        if part == .year { yearPart } else { numbersPart }
+                        switch part {
+                        case .year: yearPart
+                        case .numbers: numbersPart
+                        case .authors: AuthorsPart()
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .frame(maxWidth: 640)
                     .frame(maxWidth: .infinity)
+                }
+            }
+            // The sheet has its own stack: an author's page and the books on it open inside it.
+            .navigationDestination(for: Route.self) { route in
+                switch route {
+                case .book(let id): BookPage(bookID: id)
+                case .shelf(let id): ShelfAllView(shelfID: id)
+                case .author(let name): AuthorPage(author: name)
+                case .series(let name): SeriesPage(series: name)
+                case .results(let filter): FilterResultsPage(filter: filter)
                 }
             }
             .navigationTitle("")
@@ -57,6 +74,8 @@ struct YearPage: View {
         }
         // The sheet sits above the shelves: a tapped book opens as a page inside it.
         .environment(\.openBook, nil)
+        // Author, series and tag links on a page opened here go on inside the sheet.
+        .environment(\.openRoute, { path.append($0) })
         .sheet(item: Binding(get: { goalYear.map(YearID.init) }, set: { goalYear = $0?.year })) { item in
             GoalSheet(year: item.year, current: model.data.goal(year: item.year))
         }

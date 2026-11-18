@@ -133,8 +133,13 @@ struct TagsPage: View {
         onTags = LibraryData.cleanTags(onTags + [typed])
     }
 
+    private var storeTags: [String] {
+        model.data.book(bookID)?.storeTags ?? []
+    }
+
     private var others: [(tag: String, count: Int)] {
-        model.data.allTags().filter { !isOn($0.tag) }
+        let store = Set(storeTags.map(LibraryData.tagKey))
+        return model.data.allTags().filter { !isOn($0.tag) && !store.contains(LibraryData.tagKey($0.tag)) }
     }
 
     var body: some View {
@@ -157,6 +162,27 @@ struct TagsPage: View {
                             }
                         }
                         .padding(.vertical, 2)
+                    }
+                }
+                if !storeTags.isEmpty {
+                    Section {
+                        ChipFlow {
+                            ForEach(storeTags, id: \.self) { tag in
+                                HStack(spacing: 4) {
+                                    Circle().fill(Theme.text(colour)).frame(width: 6, height: 6)
+                                    Text(tag)
+                                    Text("from the store").font(.caption2).foregroundStyle(.secondary)
+                                }
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.text(colour))
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .overlay(Capsule().stroke(Theme.text(colour).opacity(0.45), lineWidth: 1))
+                                .accessibilityIdentifier("tags-store-\(LibraryData.tagKey(tag))")
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    } footer: {
+                        Text("These come from your collections in Apple Books or Kobo. Change them there.")
                     }
                 }
                 Section {

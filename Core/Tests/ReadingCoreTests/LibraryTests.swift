@@ -120,7 +120,8 @@ final class LibraryTests: XCTestCase {
                   imp(.kobo, "d", "Done One", finished: true)],
                  source: .kobo, complete: false, now: t0)
         lib.add(title: "Wished One", author: "Bo Writer", store: nil, now: t0, newID: "w")
-        let shelves = lib.shelves()
+        // "New on the shelf" and "Waiting longest" depend on today's date: left out here (see Shelf08Tests).
+        let shelves = lib.shelves().filter { $0.id != "new" && $0.id != "waiting" }
         XCTAssertEqual(shelves.map(\.id), ["reading", "unread", "series-the lamp cycle", "lockfree", "audio", "finished", "wish"])
         XCTAssertEqual(shelves[2].note, "3 owned · missing 3")
     }
@@ -192,7 +193,7 @@ final class LibraryTests: XCTestCase {
     // MARK: Sample
 
     func testSampleShowsEveryKindOfShelf() {
-        let shelves = LibraryData.sample.shelves()
+        let shelves = LibraryData.sample.shelves().filter { $0.id != "new" && $0.id != "waiting" }
         XCTAssertEqual(shelves.map(\.id).filter { !$0.hasPrefix("series-") },
                        ["reading", "upnext", "saved-sample-kobo", "unread", "aside", "lockfree", "audio", "twice", "pairs", "finished", "gaveup", "wish"])
         XCTAssertEqual(shelves.filter { $0.id.hasPrefix("series-") }.count, 2)
@@ -373,7 +374,7 @@ final class LibraryTests: XCTestCase {
         b.setSeries(SeriesInfo(total: 5, checked: day(2)), for: "Lamp Cycle")
         XCTAssertEqual(LibraryData.merged(a, b).seriesInfo(for: "Lamp Cycle")?.total, 5)
         XCTAssertEqual(LibraryData.merged(b, a).seriesInfo(for: "Lamp Cycle")?.total, 5)
-        XCTAssertEqual(LibraryData.currentFormat, 4)
+        XCTAssertEqual(LibraryData.currentFormat, 5)
         let old = #"{"format":1,"books":[{"id":"b1","title":"Tidal Maps","added":"2026-01-01T00:00:00Z","changed":"2026-01-01T00:00:00Z"}]}"#
         let lib = try LibraryData.decode(Data(old.utf8))
         XCTAssertEqual(lib.format, 1)

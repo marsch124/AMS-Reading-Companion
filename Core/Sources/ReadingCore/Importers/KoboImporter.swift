@@ -9,6 +9,7 @@ public enum KoboImporter {
             let rows = copy.rows(table: "content", wanted: [
                 "ContentID", "ContentType", "BookID", "Title", "Attribution", "___PercentRead", "ReadStatus",
                 "DateLastRead", "Series", "SeriesNumber", "ImageId", "MimeType", "Accessibility", "Language"])
+            let shelves = ownShelves(copy)
             var out: [ImportedBook] = []
             for r in rows {
                 guard r["ContentType"]?.string == "6" else { continue }
@@ -32,9 +33,37 @@ public enum KoboImporter {
                     purchased: nil,
                     lastOpened: r["DateLastRead"]?.string.flatMap(parseDate),
                     language: BookLanguage.code(r["Language"]?.string)))
+                out[out.count - 1].collections = (shelves[id] ?? []).sorted()
             }
             return out
         }
+    }
+
+    /// The owner's own shelves (not deleted), keyed by content id. Missing tables or columns: empty.
+    static func ownShelves(_ copy: SQLiteCopy) -> [String: [String]] {
+        var shelfNames = Set<String>()
+        for s in copy.rows(table: "Shelf", wanted: ["Name", "InternalName", "Type", "_IsDeleted"]) {
+            if isTrue(s["_IsDeleted"]) { continue }
+            guard let name = s["Name"]?.string ?? s["InternalName"]?.string else { continue }
+            if let t = s["Type"]?.string, t != "UserTag" { continue }
+            shelfNames.insert(name)
+            if let i = s["InternalName"]?.string { shelfNames.insert(i) }
+        }
+        if shelfNames.isEmpty { return [:] }
+        var out: [String: [String]] = [:]
+        for m in copy.rows(table: "ShelfContent", wanted: ["ShelfName", "ContentId", "_IsDeleted"]) {
+            guard !isTrue(m["_IsDeleted"]), let shelf = m["ShelfName"]?.string, shelfNames.contains(shelf),
+                  let cid = m["ContentId"]?.string else { continue }
+            if !(out[cid] ?? []).contains(shelf) { out[cid, default: []].append(shelf) }
+        }
+        return out
+    }
+
+    /// Kobo stores booleans as 1/0 or the words true/false.
+    private static func isTrue(_ c: SQLCell?) -> Bool {
+        guard let c else { return false }
+        if let t = c.text?.lowercased() { return t == "true" || t == "1" }
+        return (c.number ?? 0) != 0
     }
 
     static func parseDate(_ s: String) -> Date? {

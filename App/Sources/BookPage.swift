@@ -8,6 +8,8 @@ struct BookPage: View {
     @Environment(\.dismiss) private var dismiss
     let bookID: String
     @State private var askRemove = false
+    @State private var askPutAway = false
+    @State private var joining = false
     @State private var editingNote = false
     @State private var price: PriceFound?
     @State private var priceAsked = false
@@ -70,6 +72,16 @@ struct BookPage: View {
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("book-notice")
                 }
+                if !model.readOnly && !book.copies.isEmpty { putAwayLink(book) }
+                if !model.readOnly {
+                    Button { joining = true } label: {
+                        Text("Same book as another…")
+                            .foregroundStyle(Theme.text(colour))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
+                    .accessibilityIdentifier("book-join")
+                }
                 if !model.readOnly {
                     Button { correcting = true } label: {
                         Text(book.detailsByHand ? "Correct title, author or series (corrected by you)" : "Correct title, author or series")
@@ -101,6 +113,7 @@ struct BookPage: View {
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .sheet(isPresented: $joining) { JoinPage(bookID: book.id) }
         .sheet(isPresented: $correcting) { CorrectBookPage(bookID: book.id) }
         .sheet(isPresented: $tagging) { TagsPage(bookID: book.id) }
         .sheet(item: $noteDraft) { NoteEditPage(draft: $0) }
@@ -145,6 +158,12 @@ struct BookPage: View {
                     }
                 }
                 StoreMarks(book: book)
+                if book.putAway {
+                    Text("Put away")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.text("brown"))
+                        .accessibilityIdentifier("book-putaway-mark")
+                }
                 if let done = LibraryData.coverProgress(book) {
                     Text("\(Int((done * 100).rounded())) % read")
                         .font(.footnote)
@@ -169,6 +188,23 @@ struct BookPage: View {
                 }
             }
             Spacer(minLength: 0)
+        }
+    }
+
+    private func putAwayLink(_ book: Book) -> some View {
+        Button {
+            if book.putAway { model.setPutAway(false, of: [book.id]) } else { askPutAway = true }
+        } label: {
+            Text(book.putAway ? "Take out again" : "Put away")
+                .foregroundStyle(Theme.text("brown"))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 6)
+        .accessibilityIdentifier(book.putAway ? "book-takeout" : "book-putaway")
+        .confirmationDialog("Put this book away? It leaves every shelf and every count. The search still finds it, and Settings takes it out again.",
+                            isPresented: $askPutAway, titleVisibility: .visible) {
+            Button("Put away") { model.setPutAway(true, of: [book.id]) }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -346,15 +382,15 @@ struct BookPage: View {
                         .accessibilityIdentifier("book-tags-edit")
                 }
             }
-            if book.tags.isEmpty {
+            if book.allTags.isEmpty {
                 Text("No tags yet.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
                 // A tap on a tag shows every book that carries it.
                 ChipFlow {
-                    ForEach(book.tags, id: \.self) { tag in
-                        Chip(title: tag, colour: "teal", on: false) {
+                    ForEach(book.allTags, id: \.self) { tag in
+                        Chip(title: tag, colour: "teal", on: false, dot: isStoreTag(tag, book) ? "teal" : nil) {
                             var filter = BookFilter()
                             filter.tags = [LibraryData.tagKey(tag)]
                             openRoute?(.results(filter))
@@ -364,6 +400,11 @@ struct BookPage: View {
                 }
             }
         }
+    }
+
+    /// A tag that comes only from a store's collection: its chip carries a tiny dot.
+    private func isStoreTag(_ tag: String, _ book: Book) -> Bool {
+        book.storeTags.contains { LibraryData.tagKey($0) == LibraryData.tagKey(tag) }
     }
 
     private func readingNotes(_ book: Book) -> some View {

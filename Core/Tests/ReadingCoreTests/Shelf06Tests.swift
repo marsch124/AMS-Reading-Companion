@@ -237,7 +237,7 @@ final class Shelf06Tests: XCTestCase {
         let keys = choices.map(\.key)
         XCTAssertEqual(keys.count, Set(keys).count)
         XCTAssertEqual(Set(keys), ["reading", "upnext", "saved-f1", "unread", "series", "aside", "lockfree", "audio", "twice",
-                                   "pairs", "finished", "gaveup", "wish"])
+                                   "pairs", "finished", "gaveup", "wish", "new", "waiting"])
         XCTAssertEqual(choices.first { $0.key == "series" }?.count, 2)
         XCTAssertEqual(choices.first { $0.key == "saved-f1" }?.name, "All Kobo")
         XCTAssertEqual(choices.first { $0.key == "wish" }?.hidden, true)
@@ -485,7 +485,7 @@ final class Shelf06Tests: XCTestCase {
 
     // MARK: 22 Older and newer files
 
-    func testAFileOfFormat3GetsTheStartKindsAndAFormat5FileIsNewer() throws {
+    func testAFileOfFormat3GetsTheStartKindsAndAFormat6FileIsNewer() throws {
         let old = try LibraryData.decode(Data(#"{"format":3,"books":[{"id":"kobo:a","title":"The Paper Lantern"}]}"#.utf8))
         XCTAssertEqual(old.noteKinds, NoteKind.start)
         XCTAssertTrue(old.notes.isEmpty)
@@ -495,9 +495,9 @@ final class Shelf06Tests: XCTestCase {
         XCTAssertTrue(old.changes.isEmpty)
         XCTAssertEqual(old.books.first?.tags, [])
         XCTAssertFalse(old.isNewer)
-        XCTAssertEqual(LibraryData.currentFormat, 4)
-        XCTAssertTrue(try LibraryData.decode(Data(#"{"format":5}"#.utf8)).isNewer)
-        XCTAssertFalse(try LibraryData.decode(Data(#"{"format":4}"#.utf8)).isNewer)
+        XCTAssertEqual(LibraryData.currentFormat, 5)
+        XCTAssertTrue(try LibraryData.decode(Data(#"{"format":6}"#.utf8)).isNewer)
+        XCTAssertFalse(try LibraryData.decode(Data(#"{"format":5}"#.utf8)).isNewer)
     }
 
     // MARK: After the code check

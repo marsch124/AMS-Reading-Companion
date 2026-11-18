@@ -27,6 +27,7 @@ public enum AppleBooksImporter {
                 if let id = r["ZSTOREID"]?.string { seriesByID[id] = t }
                 if let id = r["ZSERIESID"]?.string { seriesByID[id] = t }
             }
+            let memberships = ownCollections(copy, seriesTitles: Set(seriesByPK.values))
             var out: [ImportedBook] = []
             for r in rows {
                 let type = r["ZCONTENTTYPE"]?.int
@@ -58,9 +59,43 @@ public enum AppleBooksImporter {
                     purchased: r["ZPURCHASEDATE"]?.double.map { Date(timeIntervalSince1970: $0 + coreDataEpoch) },
                     lastOpened: r["ZLASTOPENDATE"]?.double.map { Date(timeIntervalSince1970: $0 + coreDataEpoch) },
                     language: BookLanguage.code(r["ZLANGUAGE"]?.string)))
+                var names: [String] = []
+                for key in [r["ZASSETID"]?.string, r["ZSTOREID"]?.string].compactMap({ $0 }).map({ "id:" + $0 })
+                    + [r["Z_PK"]?.int.map { "pk:\($0)" }].compactMap({ $0 }) {
+                    for n in memberships[key] ?? [] where !names.contains(n) { names.append(n) }
+                }
+                out[out.count - 1].collections = names.sorted()
             }
             return out
         }
     }
+
+    /// The owner's OWN collections: keyed "id:<asset or store id>" and "pk:<asset row>" to collection names.
+    /// Apple's built-in collections (Books, PDFs, Audiobooks, Finished, Want to Read, My Samples, Downloaded, Library,
+    /// "My Books" ...) have ids like "Books_Collection_ID"; the owner's carry a UUID. Deleted, hidden and
+    /// placeholder collections, and a collection named like a series, are left out. Missing tables: empty.
+    static func ownCollections(_ copy: SQLiteCopy, seriesTitles: Set<String>) -> [String: [String]] {
+        let cols = copy.rows(table: "ZBKCOLLECTION", wanted: [
+            "Z_PK", "ZCOLLECTIONID", "ZTITLE", "ZDELETEDFLAG", "ZHIDDEN", "ZPLACEHOLDER"])
+        var nameByPK: [Int: String] = [:]
+        for c in cols {
+            guard let pk = c["Z_PK"]?.int, let id = c["ZCOLLECTIONID"]?.string, isUUID(id),
+                  let title = c["ZTITLE"]?.string, !seriesTitles.contains(title),
+                  c["ZDELETEDFLAG"]?.int != 1, c["ZHIDDEN"]?.int != 1, c["ZPLACEHOLDER"]?.int != 1 else { continue }
+            nameByPK[pk] = title
+        }
+        if nameByPK.isEmpty { return [:] }
+        var out: [String: [String]] = [:]
+        for m in copy.rows(table: "ZBKCOLLECTIONMEMBER", wanted: ["ZCOLLECTION", "ZASSET", "ZASSETID"]) {
+            guard let cp = m["ZCOLLECTION"]?.int, let name = nameByPK[cp] else { continue }
+            var keys: [String] = []
+            if let a = m["ZASSETID"]?.string { keys.append("id:" + a) }
+            if let a = m["ZASSET"]?.int { keys.append("pk:\(a)") }
+            for k in keys where !(out[k] ?? []).contains(name) { out[k, default: []].append(name) }
+        }
+        return out
+    }
+
+    private static func isUUID(_ s: String) -> Bool { UUID(uuidString: s) != nil }
 }
 #endif

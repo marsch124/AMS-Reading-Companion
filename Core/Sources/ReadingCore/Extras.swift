@@ -54,7 +54,7 @@ extension LibraryData {
     public var upNextBooks: [Book] {
         var seen = Set<String>()
         return upNext.compactMap { id in
-            guard seen.insert(id).inserted, let book = book(id), !book.copies.isEmpty, book.status == .unread else { return nil }
+            guard seen.insert(id).inserted, let book = book(id), !book.copies.isEmpty, !book.putAway, book.status == .unread else { return nil }
             return book
         }
     }
@@ -62,7 +62,7 @@ extension LibraryData {
     public func isUpNext(_ id: String) -> Bool { upNextBooks.contains { $0.id == id } }
 
     /// Only a book on the shelf that is not started can stand on the list.
-    public func canBeUpNext(_ book: Book) -> Bool { !book.copies.isEmpty && !book.removed && book.status == .unread }
+    public func canBeUpNext(_ book: Book) -> Bool { !book.copies.isEmpty && !book.removed && !book.putAway && book.status == .unread }
 
     /// Puts a book at the end of the Up next list. Nothing happens for a book that cannot stand there or already does.
     public mutating func addUpNext(_ id: String, now: Date = Date()) {

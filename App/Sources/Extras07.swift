@@ -119,8 +119,17 @@ struct QuoteLine: View {
 /// On a wish's page: does Sweden's library catalogue list the title, and in which forms?
 struct LibraryCheck: View {
     @EnvironmentObject private var model: ReadingModel
-    let book: Book
+    /// Remembers an answer while the app is open.
+    let key: String
+    let title: String
+    let author: String
     @State private var answer: LibraryAnswer?
+
+    init(key: String, title: String, author: String) {
+        self.key = key; self.title = title; self.author = author
+    }
+
+    init(book: Book) { self.init(key: book.id, title: book.title, author: book.author) }
 
     /// What was found before, kept while the app is open, so a page opened again does not ask again.
     @MainActor private static var known: [String: LibraryAnswer] = [:]
@@ -146,7 +155,7 @@ struct LibraryCheck: View {
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("library-unreachable")
             }
-            if let page = LibraryLookup.page(title: book.title, author: book.author) {
+            if let page = LibraryLookup.page(title: title, author: author) {
                 Link("Open at the library", destination: page)
                     .accessibilityIdentifier("library-open")
             }
@@ -156,15 +165,15 @@ struct LibraryCheck: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .tint(Theme.text("green"))
-        .task(id: book.id) {
-            if let before = Self.known[book.id] { answer = before; return }
+        .task(id: key) {
+            if let before = Self.known[key] { answer = before; return }
             guard !model.sample else {
                 answer = .found(LibraryFinding(forms: [.book, .ebook], link: "", checked: Date()))
                 return
             }
-            let found = await LibraryLookup.look(title: book.title, author: book.author, isbn: nil)
+            let found = await LibraryLookup.look(title: title, author: author, isbn: nil)
             answer = found
-            if found != .unreachable { Self.known[book.id] = found }
+            if found != .unreachable { Self.known[key] = found }
         }
     }
 }

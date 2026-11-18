@@ -178,6 +178,8 @@ struct FilterResultsPage: View {
     @State private var name = ""
     @State private var keptName: String?
     @AppStorage(CoverWall.key) private var wall = false
+    @State private var selecting = false
+    @State private var ticked: Set<String> = []
 
     private let colour = "sea"
 
@@ -209,6 +211,7 @@ struct FilterResultsPage: View {
                                     .frame(width: 92, alignment: .leading)
                             }
                             .accessibilityIdentifier("result-\(book.id)")
+                            .selectableCover(book.id)
                         }
                     }
                 }
@@ -232,6 +235,7 @@ struct FilterResultsPage: View {
                 }
             }
         }
+        .selectMode(books: books, colour: colour, selecting: $selecting, ids: $ticked)
         .onChange(of: filter) { _, _ in keptName = nil }
         .alert("Keep as a shelf", isPresented: $naming) {
             TextField("Name", text: $name)

@@ -151,10 +151,10 @@ final class ExtrasTests: XCTestCase {
 
     func testNumbersCountTheSampleShelf() {
         let n = LibraryData.sample.numbers(calendar: utc)
-        XCTAssertEqual(n.owned, 17)
+        XCTAssertEqual(n.owned, 19)   // 20 owned, one of them put away
         XCTAssertEqual(n.wishes, 3)
         XCTAssertEqual(n.stores.first?.name, "Kobo")
-        XCTAssertEqual(n.reading.map(\.count).reduce(0, +), 17)          // every owned book stands in exactly one line
+        XCTAssertEqual(n.reading.map(\.count).reduce(0, +), 19)          // every owned book stands in exactly one line
         XCTAssertEqual(n.finishedByYear.first?.name, "2026")
         XCTAssertEqual(n.rated, 2)
         XCTAssertEqual(n.meanStars, 4.5)
@@ -177,6 +177,6 @@ final class ExtrasTests: XCTestCase {
         XCTAssertNil(data.books[0].language)
         XCTAssertEqual(data.series["tide"]?.byHand, false)
         XCTAssertFalse(data.isNewer)
-        XCTAssertEqual(LibraryData.currentFormat, 4)
+        XCTAssertEqual(LibraryData.currentFormat, 5)
     }
 }

@@ -14,17 +14,19 @@ public struct BookCopy: Codable, Equatable, Sendable, Identifiable {
     public var filePath: String?
     public var purchased: Date?
     public var source: CopySource
+    /// The store's own collections this copy stands in (Apple Books collections, Kobo shelves). Shown as tags.
+    public var collections: [String]
 
     public var id: String { "\(store.rawValue):\(storeID)" }
     public var isAudio: Bool { kind == .audiobook }
 
     public init(store: BookStore, storeID: String, kind: BookKind = .ebook, lockFree: Bool = false,
-                filePath: String? = nil, purchased: Date? = nil, source: CopySource = .hand) {
+                filePath: String? = nil, purchased: Date? = nil, source: CopySource = .hand, collections: [String] = []) {
         self.store = store; self.storeID = storeID; self.kind = kind; self.lockFree = lockFree
-        self.filePath = filePath; self.purchased = purchased; self.source = source
+        self.filePath = filePath; self.purchased = purchased; self.source = source; self.collections = collections
     }
 
-    enum CodingKeys: String, CodingKey { case store, storeID, kind, lockFree, filePath, purchased, source }
+    enum CodingKeys: String, CodingKey { case store, storeID, kind, lockFree, filePath, purchased, source, collections }
 
     /// Tolerant: a field a newer or older version does not know gets its default.
     public init(from decoder: Decoder) throws {
@@ -36,6 +38,7 @@ public struct BookCopy: Codable, Equatable, Sendable, Identifiable {
         filePath = try? c.decodeIfPresent(String.self, forKey: .filePath)
         purchased = try? c.decodeIfPresent(Date.self, forKey: .purchased)
         source = (try? c.decode(CopySource.self, forKey: .source)) ?? .hand
+        collections = (try? c.decode([String].self, forKey: .collections)) ?? []
     }
 }
 
@@ -82,6 +85,8 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
     /// What title, author and series were before the owner's first correction: the store's own words.
     /// By them the book is still told to be the same when another store lists it, and they come back on "uncorrect".
     public var storeDetails: BookDetails?
+    /// Put away by the owner (a manual, a sample of his own): on no shelf and in no count, but still found by the search.
+    public var putAway: Bool
 
     public init(id: String, title: String, author: String = "", coverURL: String? = nil, series: String? = nil,
                 seriesNumber: Double? = nil, copies: [BookCopy] = [], status: ReadStatus = .unread,
@@ -98,12 +103,13 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
         self.language = language; self.languageByHand = languageByHand; self.finished = finished
         self.tags = tags; self.about = about; self.aboutChecked = aboutChecked; self.detailsByHand = detailsByHand
         self.storeDetails = nil
+        self.putAway = false
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, author, coverURL, series, seriesNumber, copies, status, statusByHand, wish, removed
         case progress, lastOpened, added, changed, rating, note, gaveUp, language, languageByHand, finished
-        case tags, about, aboutChecked, detailsByHand, storeDetails
+        case tags, about, aboutChecked, detailsByHand, storeDetails, putAway
     }
 
     public init(from decoder: Decoder) throws {
@@ -132,6 +138,7 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
         tags = (try? c.decode([String].self, forKey: .tags)) ?? []
         about = try? c.decodeIfPresent(String.self, forKey: .about)
         aboutChecked = try? c.decodeIfPresent(Date.self, forKey: .aboutChecked)
+        putAway = (try? c.decode(Bool.self, forKey: .putAway)) ?? false
         detailsByHand = (try? c.decode(Bool.self, forKey: .detailsByHand)) ?? false
         storeDetails = try? c.decodeIfPresent(BookDetails.self, forKey: .storeDetails)
     }
@@ -217,7 +224,7 @@ public struct LibraryData: Codable, Equatable, Sendable {
     /// 3 (version 0.5): the Up next list, the yearly goal, a book's language and finishing day, a series total typed by hand.
     /// 4 (version 0.6): tags, reading notes and their kinds, kept filters, the choice and order of shelves,
     /// corrected details, what a book is about, and what changed with each store's list.
-    public static let currentFormat = 4
+    public static let currentFormat = 5
 
     public var format: Int
     public var books: [Book]
@@ -244,6 +251,8 @@ public struct LibraryData: Codable, Equatable, Sendable {
     public var shelvesChanged: Date
     /// What came and left with the latest reads of the stores' lists, the newest first.
     public var changes: [ChangeEntry]
+    /// The parts of the main screen the owner switched off (see `MainPart`). Travels with `shelvesChanged`.
+    public var hiddenParts: [String]
 
     public init(format: Int = LibraryData.currentFormat, books: [Book] = [], imports: [String: ImportNote] = [:],
                 series: [String: SeriesInfo] = [:], upNext: [String] = [], upNextChanged: Date = Date(timeIntervalSince1970: 0),
@@ -251,17 +260,18 @@ public struct LibraryData: Codable, Equatable, Sendable {
                 notes: [ReadingNote] = [], noteKinds: [NoteKind] = NoteKind.start,
                 noteKindsChanged: Date = Date(timeIntervalSince1970: 0), savedFilters: [SavedFilter] = [],
                 shelfOrder: [String] = [], hiddenShelves: [String] = [],
-                shelvesChanged: Date = Date(timeIntervalSince1970: 0), changes: [ChangeEntry] = []) {
+                shelvesChanged: Date = Date(timeIntervalSince1970: 0), changes: [ChangeEntry] = [],
+                hiddenParts: [String] = []) {
         self.format = format; self.books = books; self.imports = imports; self.series = series
         self.upNext = upNext; self.upNextChanged = upNextChanged; self.goals = goals; self.goalsChanged = goalsChanged
         self.notes = notes; self.noteKinds = noteKinds; self.noteKindsChanged = noteKindsChanged
         self.savedFilters = savedFilters; self.shelfOrder = shelfOrder; self.hiddenShelves = hiddenShelves
-        self.shelvesChanged = shelvesChanged; self.changes = changes
+        self.shelvesChanged = shelvesChanged; self.changes = changes; self.hiddenParts = hiddenParts
     }
 
     enum CodingKeys: String, CodingKey {
         case format, books, imports, series, upNext, upNextChanged, goals, goalsChanged
-        case notes, noteKinds, noteKindsChanged, savedFilters, shelfOrder, hiddenShelves, shelvesChanged, changes
+        case notes, noteKinds, noteKindsChanged, savedFilters, shelfOrder, hiddenShelves, shelvesChanged, changes, hiddenParts
     }
 
     public init(from decoder: Decoder) throws {
@@ -282,6 +292,7 @@ public struct LibraryData: Codable, Equatable, Sendable {
         hiddenShelves = (try? c.decode([String].self, forKey: .hiddenShelves)) ?? []
         shelvesChanged = (try? c.decode(Date.self, forKey: .shelvesChanged)) ?? Date(timeIntervalSince1970: 0)
         changes = ((try? c.decode([Lossy<ChangeEntry>].self, forKey: .changes)) ?? []).compactMap(\.value)
+        hiddenParts = (try? c.decode([String].self, forKey: .hiddenParts)) ?? []
     }
 
     /// A file written by a newer version of the app: show it, change nothing.
@@ -323,6 +334,27 @@ public struct LibraryData: Codable, Equatable, Sendable {
                 byID[book.id] = book
                 order.append(book.id)
             }
+        }
+        // A book that was joined into another one on one device and touched on the other device afterwards comes
+        // back with its old copy. The copy belongs to the book it was joined into (the one whose id is not the
+        // copy's own): the old book gives it up, and leaves when nothing is left of it.
+        let live = order.compactMap { byID[$0] }.filter { !$0.removed }
+        var holder: [String: String] = [:]
+        for book in live { for copy in book.copies where copy.id != book.id { holder[copy.id] = book.id } }
+        for book in live {
+            guard book.copies.contains(where: { holder[$0.id] != nil && holder[$0.id] != book.id }) else { continue }
+            var old = book
+            let keeper = old.copies.compactMap { holder[$0.id] }.first { $0 != old.id }
+            old.copies.removeAll { holder[$0.id] != nil && holder[$0.id] != old.id }
+            if old.copies.isEmpty, !old.wish {
+                old.removed = true
+                if let keeper, var into = byID[keeper] {
+                    if into.rating == nil { into.rating = old.rating }
+                    if (into.note ?? "").isEmpty { into.note = old.note }
+                    byID[keeper] = into
+                }
+            }
+            byID[old.id] = old
         }
         var imports = a.imports
         for (store, note) in b.imports where note.date > (imports[store]?.date ?? .distantPast) {
@@ -366,7 +398,8 @@ public struct LibraryData: Codable, Equatable, Sendable {
                            savedFilters: newest(a.savedFilters + b.savedFilters) { $0.changed },
                            shelfOrder: shelfSide.shelfOrder, hiddenShelves: shelfSide.hiddenShelves,
                            shelvesChanged: shelfSide.shelvesChanged,
-                           changes: Array(changes.prefix(ChangeEntry.kept)))
+                           changes: Array(changes.prefix(ChangeEntry.kept)),
+                           hiddenParts: shelfSide.hiddenParts)
     }
 }
 

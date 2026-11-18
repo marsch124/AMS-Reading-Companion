@@ -54,6 +54,7 @@ struct NoteEditPage: View {
     @State private var kindID: String
     @State private var text: String
     @State private var page: String
+    @State private var done = false
     @State private var pickingBook = false
     @State private var editingKinds = false
     @State private var confirmRemove = false
@@ -133,6 +134,7 @@ struct NoteEditPage: View {
             bookID = note.bookID
             text = note.text
             page = note.page ?? ""
+            done = note.done
             kindID = model.data.noteKinds.contains { $0.id == note.kind } ? note.kind : ""
         } else {
             kindID = model.data.noteKinds.first?.id ?? ""
@@ -156,6 +158,12 @@ struct NoteEditPage: View {
             TextField("Page (if you like)", text: $page)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("note-page-field")
+            if kindID == "todo" {
+                Toggle("Done", isOn: $done)
+                    .tint(Theme.fill(noteColour))
+                    .disabled(model.readOnly)
+                    .accessibilityIdentifier("note-done-switch")
+            }
             if let note = existing { existingRow(note) }
             Spacer(minLength: 0)
         }
@@ -263,10 +271,14 @@ struct NoteEditPage: View {
     private func save() {
         dictation.stop()
         let pageValue = page.trimmingCharacters(in: .whitespaces)
+        // Only a To do can be done; a note changed to another kind is opened again.
+        let isDone = kindID == "todo" && done
         if let note = existing {
             model.changeNote(note.id, text: text, kind: kindID, page: pageValue.isEmpty ? nil : pageValue, bookID: bookID)
-        } else {
-            _ = model.addNote(bookID: bookID, text: text, kind: kindID, page: pageValue.isEmpty ? nil : pageValue)
+            if note.done != isDone { model.setDone(isDone, note: note.id) }
+        } else if let added = model.addNote(bookID: bookID, text: text, kind: kindID, page: pageValue.isEmpty ? nil : pageValue),
+                  isDone {
+            model.setDone(true, note: added.id)
         }
         dismiss()
     }

@@ -13,12 +13,19 @@ struct NoteRow: View {
 
     var body: some View {
         let kind = model.data.kind(note.kind)
+        let isTodo = note.kind == "todo"
         HStack(alignment: .firstTextBaseline, spacing: 7) {
-            Circle()
-                .fill(Theme.text(kind.colour))
-                .frame(width: 8, height: 8)
+            if isTodo {
+                tickBox(kind)
+            } else {
+                Circle()
+                    .fill(Theme.text(kind.colour))
+                    .frame(width: 8, height: 8)
+            }
             VStack(alignment: .leading, spacing: 1) {
                 Text(words)
+                    .strikethrough(isTodo && note.done)
+                    .foregroundStyle(isTodo && note.done ? Color.secondary : Color.primary)
                     .lineLimit(5)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -30,6 +37,24 @@ struct NoteRow: View {
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())
+    }
+
+    /// The hand-drawn box of a To do. It is its own tap target (a high-priority tap, not a Button), so a tap on it
+    /// ticks the note and never reaches the Button around the row that opens the note.
+    private func tickBox(_ kind: NoteKind) -> some View {
+        TickBoxMark(done: note.done)
+            .stroke(note.done ? Theme.text(kind.colour) : Color.secondary,
+                    style: StrokeStyle(lineWidth: 1.9, lineCap: .round, lineJoin: .round))
+            .frame(width: 18, height: 18)
+            .padding(4)
+            .contentShape(Rectangle())
+            .highPriorityGesture(TapGesture().onEnded { if !model.readOnly { model.setDone(!note.done, note: note.id) } })
+            .accessibilityElement()
+            .accessibilityLabel(note.done ? "Done" : "Not done")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { if !model.readOnly { model.setDone(!note.done, note: note.id) } }
+            .accessibilityIdentifier("note-tick-\(note.id)")
+            .padding(-4)
     }
 
     /// A quote stands in quotation marks, unless the owner typed them himself.
@@ -55,6 +80,24 @@ struct NoteRow: View {
         f.locale = Locale(identifier: "en_GB")
         f.dateFormat = calendar.component(.year, from: date) == calendar.component(.year, from: now) ? "d MMM" : "d MMM yyyy"
         return f.string(from: date)
+    }
+}
+
+/// A box on a 24-point grid; with `done`, a tick stands in it.
+struct TickBoxMark: Shape {
+    var done: Bool
+    func path(in rect: CGRect) -> Path {
+        let k = min(rect.width, rect.height) / 24
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * k, y: rect.minY + y * k) }
+        var p = Path()
+        p.addRoundedRect(in: CGRect(x: rect.minX + 3.5 * k, y: rect.minY + 3.5 * k, width: 17 * k, height: 17 * k),
+                         cornerSize: CGSize(width: 4 * k, height: 4 * k))
+        if done {
+            p.move(to: pt(8, 12.4))
+            p.addLine(to: pt(11, 15.4))
+            p.addLine(to: pt(16.4, 8.6))
+        }
+        return p
     }
 }
 
@@ -132,14 +175,18 @@ struct NotesPage: View {
                 .accessibilityIdentifier("notes-kind-all")
             ForEach(kinds, id: \.kind.id) { entry in
                 if entry.count > 0 {
-                    Chip(title: entry.kind.name, count: entry.count, colour: colour, on: kind == entry.kind.id, dot: entry.kind.colour) {
+                    let doneCount = entry.kind.id == "todo" ? notes.filter { $0.kind == "todo" && $0.done }.count : 0
+                    Chip(title: entry.kind.name, count: doneCount > 0 ? entry.count - doneCount : entry.count,
+                         colour: colour, on: kind == entry.kind.id, dot: entry.kind.colour) {
                         kind = kind == entry.kind.id ? nil : entry.kind.id
                     }
                     .accessibilityIdentifier("notes-kind-\(entry.kind.id.isEmpty ? "other" : entry.kind.id)")
                 }
             }
         }
-        let shown = model.data.notes(holding: words, kind: kind)
+        let found = model.data.notes(holding: words, kind: kind)
+        // With the To do chip chosen, the open ones stand before the done ones (the order inside each is kept).
+        let shown = kind == "todo" ? found.filter { !$0.done } + found.filter(\.done) : found
         HStack(spacing: 8) {
             HStack(spacing: 6) {
                 AppMarkView(.search, size: 15, colour: .secondary)

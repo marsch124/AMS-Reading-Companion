@@ -37,6 +37,7 @@ struct CoverWall: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(book.title), \(book.author)")
                 .accessibilityIdentifier("wall-\(book.id)")
+                .selectableCover(book.id)
             }
         }
         .padding(.horizontal, 12)

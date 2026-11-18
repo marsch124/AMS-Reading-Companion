@@ -130,5 +130,65 @@ final class ImporterTests: XCTestCase {
         XCTAssertEqual(try KoboImporter.read(database: db), [])
         XCTAssertEqual(try KindleImporter.read(folder: dir), [])
     }
+
+    func testAppleCollectionsBecomeTags() throws {
+        let dir = try tempFolder()
+        try makeDB(dir.appendingPathComponent("BKLibrary-1-1.sqlite"), [
+            "CREATE TABLE ZBKLIBRARYASSET (Z_PK INTEGER PRIMARY KEY, ZASSETID TEXT, ZSTOREID TEXT, ZTITLE TEXT, ZCONTENTTYPE INTEGER)",
+            "INSERT INTO ZBKLIBRARYASSET VALUES (1,'A1','111','Made Up One',4)",
+            "INSERT INTO ZBKLIBRARYASSET VALUES (2,'A2','222','Made Up Two',4)",
+            "CREATE TABLE ZBKCOLLECTION (Z_PK INTEGER PRIMARY KEY, ZDELETEDFLAG INTEGER, ZHIDDEN INTEGER, ZPLACEHOLDER INTEGER, ZCOLLECTIONID TEXT, ZTITLE TEXT)",
+            "INSERT INTO ZBKCOLLECTION VALUES (1,0,0,0,'Books_Collection_ID','Books')",
+            "INSERT INTO ZBKCOLLECTION VALUES (2,0,0,0,'E802498E-2306-461C-82AB-D4E322EB66E0','Made Up Fun')",
+            "INSERT INTO ZBKCOLLECTION VALUES (3,0,0,0,'D70BF2F1-2041-44F7-8ED7-AABC61388145','Made Up Work')",
+            "INSERT INTO ZBKCOLLECTION VALUES (4,1,0,0,'0B219B5D-2F65-4EAE-8FCC-09CCA0DA4C98','Made Up Deleted')",
+            "CREATE TABLE ZBKCOLLECTIONMEMBER (Z_PK INTEGER PRIMARY KEY, ZASSET INTEGER, ZCOLLECTION INTEGER, ZASSETID TEXT)",
+            "INSERT INTO ZBKCOLLECTIONMEMBER VALUES (1,NULL,1,'A1')",
+            "INSERT INTO ZBKCOLLECTIONMEMBER VALUES (2,NULL,2,'A1')",
+            "INSERT INTO ZBKCOLLECTIONMEMBER VALUES (3,NULL,3,'111')",
+            "INSERT INTO ZBKCOLLECTIONMEMBER VALUES (4,NULL,4,'A1')",
+            "INSERT INTO ZBKCOLLECTIONMEMBER VALUES (5,2,2,NULL)",
+        ])
+        let books = try AppleBooksImporter.read(folder: dir)
+        XCTAssertEqual(books.first { $0.title == "Made Up One" }?.collections, ["Made Up Fun", "Made Up Work"])
+        XCTAssertEqual(books.first { $0.title == "Made Up Two" }?.collections, ["Made Up Fun"])
+    }
+
+    func testKoboShelvesBecomeTags() throws {
+        let dir = try tempFolder()
+        let db = dir.appendingPathComponent("Kobo.sqlite")
+        try makeDB(db, [
+            "CREATE TABLE content (ContentID TEXT, ContentType TEXT, BookID TEXT, Title TEXT)",
+            "INSERT INTO content VALUES ('k1','6',NULL,'Made Up One')",
+            "INSERT INTO content VALUES ('k2','6',NULL,'Made Up Two')",
+            "CREATE TABLE Shelf (Id TEXT, InternalName TEXT, Name TEXT, Type TEXT, _IsDeleted BOOL)",
+            "INSERT INTO Shelf VALUES ('1','Alpha','Alpha','UserTag','false')",
+            "INSERT INTO Shelf VALUES ('2','Beta','Beta','UserTag','false')",
+            "INSERT INTO Shelf VALUES ('3','Gone','Gone','UserTag','true')",
+            "CREATE TABLE ShelfContent (ShelfName TEXT, ContentId TEXT, _IsDeleted BOOL)",
+            "INSERT INTO ShelfContent VALUES ('Alpha','k1','false')",
+            "INSERT INTO ShelfContent VALUES ('Beta','k1','false')",
+            "INSERT INTO ShelfContent VALUES ('Gone','k1','false')",
+            "INSERT INTO ShelfContent VALUES ('Alpha','k2','true')",
+        ])
+        let k = try KoboImporter.read(database: db)
+        XCTAssertEqual(k.first { $0.storeID == "k1" }?.collections, ["Alpha", "Beta"])
+        XCTAssertEqual(k.first { $0.storeID == "k2" }?.collections, [])
+    }
+
+    func testNoCollectionTablesStillImports() throws {
+        let dir = try tempFolder()
+        try makeDB(dir.appendingPathComponent("BKLibrary-1-1.sqlite"), [
+            "CREATE TABLE ZBKLIBRARYASSET (Z_PK INTEGER PRIMARY KEY, ZASSETID TEXT, ZSTOREID TEXT, ZTITLE TEXT, ZCONTENTTYPE INTEGER)",
+            "INSERT INTO ZBKLIBRARYASSET VALUES (1,'A1','111','Made Up One',4)",
+        ])
+        XCTAssertEqual(try AppleBooksImporter.read(folder: dir).first?.collections, [])
+        let db = dir.appendingPathComponent("Kobo.sqlite")
+        try makeDB(db, [
+            "CREATE TABLE content (ContentID TEXT, ContentType TEXT, BookID TEXT, Title TEXT)",
+            "INSERT INTO content VALUES ('k1','6',NULL,'Made Up One')",
+        ])
+        XCTAssertEqual(try KoboImporter.read(database: db).first?.collections, [])
+    }
 }
 #endif

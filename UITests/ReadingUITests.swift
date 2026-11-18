@@ -142,4 +142,23 @@ final class ReadingUITests: XCTestCase {
         shows(wall, "cover-wall")
         tap(wall, "wall-toggle")
     }
+
+    /// 0.8: the Authors part, the main-screen switches, Select on a shelf's page, and Put away on a book's page.
+    func testAuthorsSelectPutAwayAndMainScreenSwitches() {
+        let authors = launch(["-authors"])
+        shows(authors, "authors-list")
+
+        let parts = launch(["-settings", "-page", "shelves"])
+        shows(parts, "part-quote")
+
+        let shelf = launch(["-shelf", "unread"])
+        tap(shelf, "select-start")
+        tap(shelf, "select-all")
+        shows(shelf, "select-putaway")
+        tap(shelf, "select-done")
+        XCTAssertFalse(element(shelf, "select-putaway").waitForExistence(timeout: 2))
+
+        let away = launch(["-settings", "-page", "putaway"])
+        shows(away, "putaway-page")
+    }
 }
