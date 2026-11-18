@@ -46,7 +46,11 @@
 		<string>kobo</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>The camera reads the barcode on a book so the app can tell you if you already own it.</string>
+	<string>The camera reads the barcode on a book so the app can tell you if you already own it, and takes a photo of a book page for a reading note.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>To write a reading note by voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>To turn what you say into a reading note.</string>
 	<key>NSUbiquitousContainers</key>
 	<dict>
 		<key>iCloud.com.schabbauer.AMSReadingCompanion</key>

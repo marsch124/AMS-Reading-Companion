@@ -49,6 +49,14 @@ struct ReadingApp: App {
 
 enum SendTarget: String { case apple, kobo, kindle }
 
+/// A reading note on its way: a new one for a book, or one that exists and is being changed.
+struct NoteDraft: Identifiable, Equatable {
+    var bookID: String
+    /// nil = a new note.
+    var noteID: String?
+    var id: String { noteID ?? "new-\(bookID)" }
+}
+
 /// What the screens share: the shelf, and everything that changes it.
 @MainActor
 final class ReadingModel: ObservableObject {
@@ -71,6 +79,16 @@ final class ReadingModel: ObservableObject {
     @Published var cloudOn = true
     /// A line in Settings after a Kindle list file was taken in.
     @Published var fileNote: String?
+    /// The big filter (0.6).
+    @Published var filterShown = false
+    /// The notebook: every reading note (0.6).
+    @Published var notesShown = false
+    /// A note being written or changed, from anywhere in the app.
+    @Published var noteDraft: NoteDraft?
+    /// The book "Surprise me" picked last, so the next press gives another.
+    var lastSurprise: String?
+    /// For pictures: `-page author|series|results|changes` starts on that page (see RootView); `-page shelves|kinds` with `-settings`.
+    var startPage: String?
     /// For pictures and screen tests: `-show <book id>` starts on that book's page.
     @Published var startBook: String?
     /// For pictures: `-shelf unread` starts on that shelf's page.
@@ -83,6 +101,7 @@ final class ReadingModel: ObservableObject {
     /// A change is waiting to be written.
     private var unsaved = false
     private var lastRead = Date.distantPast
+    private var askingAbout = Set<String>()
 
     var readOnly: Bool { data.isNewer }
 
@@ -111,6 +130,10 @@ final class ReadingModel: ObservableObject {
         yearOnNumbers = args.contains("-numbers")
         yearShown = args.contains("-year") || yearOnNumbers
         if let i = args.firstIndex(of: "-shelf"), i + 1 < args.count { startShelf = args[i + 1] }
+        filterShown = args.contains("-filter")
+        notesShown = args.contains("-notes")
+        if let i = args.firstIndex(of: "-page"), i + 1 < args.count { startPage = args[i + 1] }
+        if args.contains("-newnote"), let book = data.noteBook { noteDraft = NoteDraft(bookID: book.id) }
         // `-show Brass` starts on the page of the first book whose title holds that word.
         // (By title, not by id: the Mac takes an argument with a colon in it for a file to open and shows no window.)
         if let i = args.firstIndex(of: "-show"), i + 1 < args.count {
@@ -287,7 +310,9 @@ final class ReadingModel: ObservableObject {
         let count = read.books.filter { !$0.isSample }.count
         guard count > 0 else { return }
         change { data in
-            data.take(read.books, source: source, complete: complete)
+            let first = data.imports[key] == nil
+            let summary = data.take(read.books, source: source, complete: complete)
+            data.noteChange(summary, store: key, first: first)
             // Kindle's Mac list is only its latest sync, so its count is "books on the shelf", not "books in the list".
             let shown = source == .kindle
                 ? data.owned.filter { $0.copies.contains { $0.store == .kindle } }.count
@@ -397,6 +422,84 @@ final class ReadingModel: ObservableObject {
 
     func setSeriesTotal(_ total: Int?, for name: String) {
         change { $0.setSeriesTotal(total, for: name) }
+    }
+
+    // MARK: Version 0.6
+
+    func setTags(_ tags: [String], of id: String) { change { $0.setTags(tags, of: id) } }
+
+    @discardableResult
+    func keepFilter(_ filter: BookFilter, name: String) -> SavedFilter? {
+        var kept: SavedFilter?
+        change { kept = $0.keepFilter(filter, name: name) }
+        return kept
+    }
+
+    func changeKeptFilter(_ id: String, name: String? = nil, filter: BookFilter? = nil) {
+        change { $0.changeKeptFilter(id, name: name, filter: filter) }
+    }
+
+    func removeKeptFilter(_ id: String) { change { $0.removeKeptFilter(id) } }
+
+    func setShelves(order: [String], hidden: [String]) { change { $0.setShelves(order: order, hidden: hidden) } }
+
+    func correct(_ id: String, title: String, author: String, series: String?, number: Double?) {
+        change { $0.correct(id, title: title, author: author, series: series, number: number) }
+    }
+
+    func uncorrect(_ id: String) { change { $0.uncorrect(id) } }
+
+    @discardableResult
+    func wishSeriesPart(series: String, number: Int, title: String?) -> Book? {
+        var book: Book?
+        change { book = $0.wishSeriesPart(series: series, number: number, title: title) }
+        return book
+    }
+
+    @discardableResult
+    func addNote(bookID: String, text: String, kind: String, page: String?) -> ReadingNote? {
+        var note: ReadingNote?
+        change { note = $0.addNote(bookID: bookID, text: text, kind: kind, page: page) }
+        return note
+    }
+
+    func changeNote(_ id: String, text: String, kind: String, page: String?, bookID: String? = nil) {
+        change { $0.changeNote(id, text: text, kind: kind, page: page, bookID: bookID) }
+    }
+
+    func removeNote(_ id: String) { change { $0.removeNote(id) } }
+
+    @discardableResult
+    func addKind(_ name: String) -> NoteKind? {
+        var kind: NoteKind?
+        change { kind = $0.addKind(name) }
+        return kind
+    }
+
+    func renameKind(_ id: String, to name: String) { change { $0.renameKind(id, to: name) } }
+
+    func removeKind(_ id: String) { change { $0.removeKind(id) } }
+
+    /// A book picked by chance among the ones not started; another one each time.
+    func surprise() -> Book? {
+        let book = data.surprise(not: lastSurprise)
+        lastSurprise = book?.id
+        return book
+    }
+
+    /// Asks the catalogues what a book is about, once, and remembers the answer (or that there was none).
+    func lookUpAbout(_ book: Book) {
+        guard !sample, !readOnly, data.shouldAskAbout(book), !askingAbout.contains(book.id) else { return }
+        askingAbout.insert(book.id)
+        Task {
+            let answer = await AboutLookup.find(title: book.title, author: book.author)
+            askingAbout.remove(book.id)
+            switch answer {
+            case .found(let text): change { $0.setAbout(text, of: book.id) }
+            case .unknown: change { $0.setAbout(nil, of: book.id) }
+            case .unreachable: break          // not an answer: ask again another time
+            }
+        }
     }
 
     func setGoal(_ count: Int?, year: Int) {

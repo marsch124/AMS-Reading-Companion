@@ -20,6 +20,10 @@ enum Theme {
         "pink": ((0.74, 0.22, 0.47), (0.98, 0.58, 0.76)),
         "brown": ((0.55, 0.37, 0.20), (0.85, 0.68, 0.48)),
         "indigo": ((0.30, 0.32, 0.78), (0.66, 0.68, 1.00)),
+        // The reading notes.
+        "orange": ((0.78, 0.38, 0.04), (1.00, 0.66, 0.34)),
+        // The big filter and the shelves kept from it.
+        "sea": ((0.04, 0.44, 0.64), (0.40, 0.78, 0.96)),
     ]
 
     /// For words: headings and links.

@@ -6,6 +6,17 @@ import SwiftUI
 enum Route: Hashable {
     case book(String)
     case shelf(String)
+    /// Every book of one author (0.6).
+    case author(String)
+    /// Every part of one series (0.6).
+    case series(String)
+    /// The books that fit a filter (0.6).
+    case results(BookFilter)
+}
+
+/// Opens a page on the main screen's stack from anywhere below it (also from the book shown beside the shelves).
+private struct OpenRouteKey: EnvironmentKey {
+    static let defaultValue: ((Route) -> Void)? = nil
 }
 
 /// On a wide screen a tap on a cover does not push a page: it shows the book in the part on the right.
@@ -22,6 +33,11 @@ extension EnvironmentValues {
     var openBook: ((String) -> Void)? {
         get { self[OpenBookKey.self] }
         set { self[OpenBookKey.self] = newValue }
+    }
+
+    var openRoute: ((Route) -> Void)? {
+        get { self[OpenRouteKey.self] }
+        set { self[OpenRouteKey.self] = newValue }
     }
 
     /// The book shown beside the shelves, so its cover can carry a frame.
@@ -57,6 +73,7 @@ struct RootView: View {
     @State private var path: [Route] = []
     /// Wide screens: the book shown on the right. Kept while the app is open, not saved.
     @State private var selected: String?
+    @State private var changesShown = false
 
     static let wideFrom: CGFloat = 760
 
@@ -73,9 +90,11 @@ struct RootView: View {
                 shelves
                     .environment(\.openBook, wide ? { selected = $0 } : nil)
                     .environment(\.selectedBook, wide ? selected : nil)
+                    .environment(\.openRoute, { path.append($0) })
                 if wide {
                     Divider()
                     bookPane
+                        .environment(\.openRoute, { path.append($0) })
                         .frame(width: min(440, max(340, window.size.width * 0.38)))
                 }
             }
@@ -90,6 +109,12 @@ struct RootView: View {
         .sheet(isPresented: $model.addShown) { AddBookPage() }
         .sheet(isPresented: $model.scanShown) { ScanView() }
         .sheet(isPresented: $model.yearShown) { YearPage(start: model.yearOnNumbers ? .numbers : .year) }
+        .sheet(isPresented: $model.filterShown) {
+            FilterPage(onShow: { path.append(.results($0)) }, onKeep: { path.append(.shelf("saved-\($0.id)")) })
+        }
+        .sheet(isPresented: $model.notesShown) { NotesPage() }
+        .sheet(item: $model.noteDraft) { NoteEditPage(draft: $0) }
+        .sheet(isPresented: $changesShown) { ChangesPage() }
     }
 
     /// What a start argument asked for, and on a wide screen a first book on the right so that part is not empty.
@@ -101,6 +126,18 @@ struct RootView: View {
         if let id = model.startShelf {
             model.startShelf = nil
             path = [.shelf(id)]
+        }
+        // For pictures: `-page author`, `-page series`, `-page results`, `-page changes` start on that page.
+        if let page = model.startPage {
+            switch page {
+            case "author": path = [.author(model.data.noteBook?.author ?? model.data.owned.first?.author ?? "")]
+            case "series": path = [.series(model.data.owned.first { $0.series != nil }?.series ?? "")]
+            case "results":
+                if let kept = model.data.savedFilters.first { path = [.results(kept.filter)] }
+            case "changes": changesShown = true
+            default: break
+            }
+            if ["author", "series", "results", "changes"].contains(page) { model.startPage = nil }
         }
         if wide, selected == nil {
             selected = model.data.shelf("reading")?.books.first?.id
@@ -135,9 +172,11 @@ struct RootView: View {
                     if model.data.owned.isEmpty { emptyNote }
                     let ideas = model.data.whatNext()
                     if !ideas.isEmpty { WhatNextCard(ideas: ideas) }
-                    ForEach(model.data.shelves()) { shelf in
+                    if !model.data.owned.isEmpty { notesLine }
+                    ForEach(model.data.mainShelves()) { shelf in
                         ShelfRow(shelf: shelf, coverWidth: coverWidth)
                     }
+                    if let last = model.data.changes.first { changesLine(last) }
                 }
                 .padding(.vertical, 8)
             }
@@ -153,14 +192,100 @@ struct RootView: View {
                 switch route {
                 case .book(let id): BookPage(bookID: id)
                 case .shelf(let id): ShelfAllView(shelfID: id)
+                case .author(let name): AuthorPage(author: name)
+                case .series(let name): SeriesPage(series: name)
+                case .results(let filter): FilterResultsPage(filter: filter)
                 }
             }
         }
     }
 
+    /// The big filter over the whole shelf.
+    private var filterButton: some View {
+        Button { model.filterShown = true } label: {
+            AppMarkView(.filter, size: 20)
+        }
+        .help("Filter: narrow the whole shelf down")
+        .accessibilityLabel("Filter")
+        .accessibilityIdentifier("open-filter")
+    }
+
+    /// The pen: a new reading note for the book being read. With no book to write on it opens the notebook.
+    private var penButton: some View {
+        Button {
+            if let book = model.data.noteBook ?? model.data.upNextBooks.first ?? model.data.owned.first, !model.readOnly {
+                model.noteDraft = NoteDraft(bookID: book.id)
+            } else {
+                model.notesShown = true
+            }
+        } label: {
+            AppMarkView(.compose, size: 20, colour: Theme.text("orange"))
+                .padding(.leading, 6)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Write a reading note")
+        .accessibilityLabel("Write a reading note")
+        .accessibilityIdentifier("new-note")
+    }
+
+    /// One line under "What next?": the notebook with how many notes it holds, and the pen for a new note.
+    private var notesLine: some View {
+        let notes = model.data.shownNotes
+        return HStack(alignment: .center, spacing: 4) {
+            Button { model.notesShown = true } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(notes.isEmpty ? "Reading notes" : "Reading notes · \(notes.count)")
+                        .font(.headline)
+                        .foregroundStyle(Theme.text("orange"))
+                    Text(notes.first?.text ?? "Nothing noted yet")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    if !notes.isEmpty {
+                        ControlMarkView(.chevron, size: 14, colour: Theme.text("orange"))
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("open-notes")
+            penButton
+        }
+        .padding(.horizontal, 12)
+    }
+
+    /// A tiny line at the very bottom: what the latest read of a store's list brought and took away.
+    private func changesLine(_ last: ChangeEntry) -> some View {
+        var parts: [String] = []
+        if last.cameCount > 0 { parts.append("\(last.cameCount) came") }
+        if last.leftCount > 0 { parts.append("\(last.leftCount) left") }
+        return Button { changesShown = true } label: {
+            Text("\(last.storeName): \(parts.joined(separator: ", ")) · \(last.date.formatted(.dateTime.day().month(.abbreviated)))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+        .accessibilityIdentifier("open-changes")
+    }
+
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        #if os(iOS)
+        // On iPhone and iPad the filter stands on the left, so the four on the right stay where they were and the
+        // title keeps its room. (The pen stands on the "Reading notes" line: six buttons squeezed the title out.)
+        ToolbarItem(placement: .topBarLeading) {
+            filterButton
+        }
+        #endif
         ToolbarItemGroup(placement: .primaryAction) {
+            #if os(macOS)
+            filterButton
+            #endif
             Button { model.searchShown = true } label: {
                 AppMarkView(.search, size: 20)
             }
@@ -294,6 +419,19 @@ struct BookTile: View {
         BookLink(id: book.id) {
             VStack(alignment: .leading, spacing: 3) {
                 CoverView(book: book, width: width)
+                    // A started book carries a thin bar along the bottom of its cover: how far it is read.
+                    .overlay(alignment: .bottom) {
+                        if let done = LibraryData.coverProgress(book) {
+                            ZStack(alignment: .leading) {
+                                Rectangle().fill(Color.black.opacity(0.45))
+                                Rectangle().fill(Color.white).frame(width: max(2, width * done))
+                            }
+                            .frame(width: width, height: 4)
+                            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+                            .accessibilityLabel("\(Int((done * 100).rounded())) percent read")
+                            .accessibilityIdentifier("cover-progress")
+                        }
+                    }
                     // The book shown beside the shelves carries a purple frame.
                     .overlay(RoundedRectangle(cornerRadius: max(2, width * 0.05) + 2, style: .continuous)
                         .strokeBorder(Theme.text("purple"), lineWidth: 2)
@@ -310,11 +448,16 @@ struct BookTile: View {
 
 /// "What next?": one suggestion above the shelves. "Another" shows the next idea.
 struct WhatNextCard: View {
+    @EnvironmentObject private var model: ReadingModel
     let ideas: [ReadSuggestion]
     @State private var index = 0
+    /// "Surprise me": a book picked by chance, shown in place of the idea until "Another" is pressed.
+    @State private var surprise: String?
 
     var body: some View {
-        let idea = ideas[index % ideas.count]
+        let chance = surprise.flatMap { model.data.book($0) }
+        let idea = chance.map { ReadSuggestion(book: $0, reason: "A surprise from the books you have not started") }
+            ?? ideas[index % ideas.count]
         HStack(alignment: .top, spacing: 10) {
             BookLink(id: idea.book.id) {
                 HStack(alignment: .top, spacing: 10) {
@@ -340,13 +483,19 @@ struct WhatNextCard: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("whatnext-card")
             Spacer(minLength: 4)
-            if ideas.count > 1 {
-                Button("Another") { index += 1 }
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.text("purple"))
-                    .buttonStyle(.plain)
+            VStack(alignment: .trailing, spacing: 8) {
+                if ideas.count > 1 || surprise != nil {
+                    Button("Another") {
+                        if surprise != nil { surprise = nil } else { index += 1 }
+                    }
                     .accessibilityIdentifier("whatnext-another")
+                }
+                Button("Surprise me") { surprise = model.surprise()?.id }
+                    .accessibilityIdentifier("whatnext-surprise")
             }
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.text("purple"))
+            .buttonStyle(.plain)
         }
         .padding(10)
         .background(Theme.plate, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -358,11 +507,13 @@ struct WhatNextCard: View {
 /// (one store, to read or to listen) and put it in another order.
 struct ShelfAllView: View {
     @EnvironmentObject private var model: ReadingModel
+    @Environment(\.dismiss) private var dismiss
     let shelfID: String
     @State private var filter = ShelfFilter()
     // For pictures: `-order` and `-length` start with that page open.
     @State private var ordering = ProcessInfo.processInfo.arguments.contains("-order")
     @State private var settingLength = ProcessInfo.processInfo.arguments.contains("-length")
+    @State private var changingKept = false
 
     var body: some View {
         let shelf = model.data.shelf(shelfID)
@@ -404,11 +555,28 @@ struct ShelfAllView: View {
                     Button("Set length") { settingLength = true }
                         .foregroundStyle(Theme.text("green"))
                         .accessibilityIdentifier("series-length")
+                } else if !model.readOnly, model.data.keptFilter(shelfID: shelfID) != nil {
+                    Button("Change") { changingKept = true }
+                        .foregroundStyle(Theme.text("sea"))
+                        .accessibilityIdentifier("kept-change")
+                }
+            }
+            if shelfID.hasPrefix("series-"), let name = shelf?.title {
+                ToolbarItem(placement: .secondaryAction) {
+                    NavigationLink(value: Route.series(name)) { Text("All parts") }
+                        .accessibilityIdentifier("series-all-parts")
                 }
             }
         }
         .sheet(isPresented: $ordering) { UpNextOrderPage() }
         .sheet(isPresented: $settingLength) { SeriesLengthPage(name: shelf?.title ?? "") }
+        // A kept filter that was removed has no page any more: go back.
+        .onChange(of: shelfID.hasPrefix("saved-") && shelf == nil) { _, gone in
+            if gone { dismiss() }
+        }
+        .sheet(isPresented: $changingKept) {
+            if let kept = model.data.keptFilter(shelfID: shelfID) { FilterPage(kept: kept) }
+        }
     }
 
     /// The menus in one row where they fit, else the language menu on a row of its own.

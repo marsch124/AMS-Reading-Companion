@@ -59,6 +59,9 @@ public struct ImportSummary: Equatable, Sendable {
     public var updated = 0
     public var removed = 0
     public var samples = 0
+    /// The titles that came to this store's list, and the ones that left it.
+    public var came: [String] = []
+    public var left: [String] = []
     public init() {}
 }
 
@@ -90,6 +93,7 @@ extension LibraryData {
                 books[i].copies.removeAll { $0.source == source && notBooks.contains($0.id) }
                 guard books[i].copies.count != before else { continue }
                 summary.removed += before - books[i].copies.count
+                summary.left.append(books[i].title)
                 books[i].changed = now
                 if books[i].copies.isEmpty && !books[i].wish { books[i].removed = true }
             }
@@ -107,12 +111,10 @@ extension LibraryData {
                 guard !books[i].removed else { continue }
                 let before = books[i]
                 if let c = books[i].copies.firstIndex(where: { $0.id == copy.id }) { books[i].copies[c] = copy }
-                if books[i].copies.count == 1 { books[i].title = item.title; books[i].author = item.author }
+                if books[i].copies.count == 1, !books[i].detailsByHand { books[i].title = item.title; books[i].author = item.author }
                 fill(&books[i], from: item, now: now)
                 if Self.differs(books[i], before) { books[i].changed = now; summary.updated += 1 }
-            } else if let i = books.firstIndex(where: { b in
-                !b.removed && BookMatch.same(title: b.title, author: b.author, title: item.title, author: item.author)
-            }) {
+            } else if let i = books.firstIndex(where: { b in !b.removed && Self.isSame(b, title: item.title, author: item.author) }) {
                 // The same title from another store, a wish that is now owned, or a book first added by hand.
                 // But a title this store already brought (a list file without book numbers, read after the store's
                 // own list) is the same copy again: nothing is added.
@@ -129,20 +131,25 @@ extension LibraryData {
                 fill(&books[i], from: item, now: now)
                 books[i].changed = now
                 summary.added += 1
+                summary.came.append(books[i].title)
             } else if let i = books.firstIndex(where: { $0.id == copy.id }) {
                 // A book that once left this store's list and is back: the same book again, with what the owner set on it.
                 books[i].removed = false
                 books[i].copies = [copy]
-                books[i].title = item.title
-                books[i].author = item.author
+                if !books[i].detailsByHand {
+                    books[i].title = item.title
+                    books[i].author = item.author
+                }
                 fill(&books[i], from: item, now: now)
                 books[i].changed = now
                 summary.added += 1
+                summary.came.append(books[i].title)
             } else {
                 var book = Book(id: copy.id, title: item.title, author: item.author, copies: [copy], added: now, changed: now)
                 fill(&book, from: item, now: now)
                 books.append(book)
                 summary.added += 1
+                summary.came.append(book.title)
             }
         }
 
@@ -152,6 +159,7 @@ extension LibraryData {
                 books[i].copies.removeAll { $0.source == source && !seen.contains($0.id) }
                 guard books[i].copies.count != before else { continue }
                 summary.removed += before - books[i].copies.count
+                summary.left.append(books[i].title)
                 books[i].changed = now
                 if books[i].copies.isEmpty && !books[i].wish { books[i].removed = true }
             }
@@ -175,7 +183,7 @@ extension LibraryData {
             else if book.language == nil { book.language = BookLanguage.guess(title: book.title) }
         }
         if book.coverURL == nil, let cover = item.coverURL, !cover.isEmpty { book.coverURL = cover }
-        if let series = item.series, !series.isEmpty, book.series == nil {
+        if let series = item.series, !series.isEmpty, book.series == nil, !book.detailsByHand {
             book.series = series
             book.seriesNumber = item.seriesNumber
         }
@@ -211,7 +219,15 @@ extension LibraryData {
 
     /// The owned book with this title, if there is one: the check before buying or wishing.
     public func ownedMatch(title: String, author: String) -> Book? {
-        owned.first { BookMatch.same(title: $0.title, author: $0.author, title: title, author: author) }
+        owned.first { Self.isSame($0, title: title, author: author) }
+    }
+
+    /// Whether a book on the shelf is this title: by the words it shows, or (a book the owner corrected)
+    /// by the store's own words from before his correction.
+    static func isSame(_ book: Book, title: String, author: String) -> Bool {
+        if BookMatch.same(title: book.title, author: book.author, title: title, author: author) { return true }
+        guard let before = book.storeDetails else { return false }
+        return BookMatch.same(title: before.title, author: before.author, title: title, author: author)
     }
 
     /// Adds a book by hand: a wish (`store` nil) or a copy in a store. Returns the book it ended up on.
@@ -222,7 +238,7 @@ extension LibraryData {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let author = author.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return nil }
-        let match = books.firstIndex { !$0.removed && BookMatch.same(title: $0.title, author: $0.author, title: title, author: author) }
+        let match = books.firstIndex { !$0.removed && Self.isSame($0, title: title, author: author) }
         guard let store else {
             if let i = match { return books[i] }            // already owned or already wished: nothing to add
             let book = Book(id: "wish:\(newID)", title: title, author: author, wish: true, added: now, changed: now,
@@ -261,7 +277,7 @@ extension LibraryData {
 
     /// Tells whether a started book counts as being read now: opened in the 90 days before the latest reading,
     /// or set to Reading by the owner himself. A book he gave up never counts.
-    private func currentReader() -> (Book) -> Bool {
+    func currentReader() -> (Book) -> Bool {
         let latest = owned.compactMap(\.lastOpened).max() ?? Date()
         return { book in
             guard book.status == .reading, !book.gaveUp else { return false }
@@ -283,6 +299,13 @@ extension LibraryData {
 
         let queue = upNextBooks
         if !queue.isEmpty { out.append(Shelf(id: "upnext", title: "Up next · \(queue.count)", colour: "indigo", note: nil, books: queue)) }
+
+        // The filters the owner kept as shelves of his own.
+        for kept in savedFilters where !kept.removed {
+            let found = books(matching: kept.filter)
+            out.append(Shelf(id: "saved-\(kept.id)", title: "\(kept.name) · \(found.count)", colour: "sea",
+                             note: found.isEmpty ? "No book fits this filter now." : nil, books: found))
+        }
 
         let unread = owned.filter { $0.status == .unread }
             .sorted { ($0.purchased ?? .distantPast, $1.title) > ($1.purchased ?? .distantPast, $0.title) }
@@ -456,12 +479,12 @@ extension LibraryData {
         return seen.values.filter { $0.3 >= 2 }.map { (name: $0.0, author: $0.1, title: $0.2) }.sorted { $0.name < $1.name }
     }
 
-    /// Every shown book in which each typed word is found: in the title, the author, the series or the owner's note.
+    /// Every shown book in which each typed word is found: in the title, the author, the series, the owner's note or his tags.
     public func find(_ query: String) -> [Book] {
         let words = BookMatch.plain(query).split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
         guard !words.isEmpty else { return [] }
         return shown.filter { book in
-            let hay = BookMatch.plain([book.title, book.author, book.series ?? "", book.note ?? ""].joined(separator: " "))
+            let hay = BookMatch.plain(([book.title, book.author, book.series ?? "", book.note ?? ""] + book.tags).joined(separator: " "))
             return words.allSatisfy { hay.contains($0) }
         }
         .sorted { ($0.wish ? 1 : 0, BookMatch.titleKey($0.title)) < ($1.wish ? 1 : 0, BookMatch.titleKey($1.title)) }
@@ -481,6 +504,7 @@ public struct ReadSuggestion: Identifiable, Equatable, Sendable {
     public var book: Book
     public var reason: String
     public var id: String { book.id }
+    public init(book: Book, reason: String) { self.book = book; self.reason = reason }
 }
 
 /// How the books of one shelf are narrowed down and ordered on its page.

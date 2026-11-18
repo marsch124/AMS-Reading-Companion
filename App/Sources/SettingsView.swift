@@ -12,6 +12,10 @@ struct SettingsView: View {
     @State private var listType: UTType = .pdf
     @State private var savingList = false
     @State private var listNote: String?
+    // For pictures: `-page shelves`, `-page kinds` start with that page open (with `-settings`).
+    @State private var choosingShelves = ProcessInfo.processInfo.arguments.contains("shelves")
+    @State private var editingKinds = ProcessInfo.processInfo.arguments.contains("kinds")
+    @State private var showingChanges = false
 
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -28,6 +32,23 @@ struct SettingsView: View {
                         .accessibilityIdentifier("howItWorks")
                     NavigationLink("What's new") { NewsPage() }
                         .accessibilityIdentifier("whatsNew")
+                }
+
+                Section {
+                    Button("Choose your shelves") { choosingShelves = true }
+                        .foregroundStyle(Theme.text("purple"))
+                        .accessibilityIdentifier("settings-shelves")
+                    Button("Kinds of notes") { editingKinds = true }
+                        .foregroundStyle(Theme.text("orange"))
+                        .accessibilityIdentifier("settings-kinds")
+                    Button("What changed") { showingChanges = true }
+                        .foregroundStyle(Theme.text("green"))
+                        .accessibilityIdentifier("settings-changes")
+                } header: {
+                    Text("Your shelf")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Theme.text("purple"))
+                        .textCase(nil)
                 }
 
                 Section {
@@ -106,6 +127,9 @@ struct SettingsView: View {
                         .textCase(nil)
                 }
             }
+            .sheet(isPresented: $choosingShelves) { ShelvesChoicePage() }
+            .sheet(isPresented: $editingKinds) { NoteKindsPage() }
+            .sheet(isPresented: $showingChanges) { ChangesPage() }
             .navigationTitle("Settings")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

@@ -71,24 +71,39 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
     public var languageByHand: Bool
     /// The day the book was finished. nil on a book finished before version 0.5 (see `finishedDay`).
     public var finished: Date?
+    /// The owner's own tags, as he wrote them.
+    public var tags: [String]
+    /// What the book is about, in the publisher's words (from a catalogue).
+    public var about: String?
+    /// When a catalogue was last asked what the book is about and knew nothing.
+    public var aboutChecked: Date?
+    /// The owner corrected title, author or series himself: a store's list no longer changes them.
+    public var detailsByHand: Bool
+    /// What title, author and series were before the owner's first correction: the store's own words.
+    /// By them the book is still told to be the same when another store lists it, and they come back on "uncorrect".
+    public var storeDetails: BookDetails?
 
     public init(id: String, title: String, author: String = "", coverURL: String? = nil, series: String? = nil,
                 seriesNumber: Double? = nil, copies: [BookCopy] = [], status: ReadStatus = .unread,
                 statusByHand: Bool = false, wish: Bool = false, removed: Bool = false, progress: Double? = nil,
                 lastOpened: Date? = nil, added: Date = Date(), changed: Date = Date(),
                 rating: Int? = nil, note: String? = nil, gaveUp: Bool = false,
-                language: String? = nil, languageByHand: Bool = false, finished: Date? = nil) {
+                language: String? = nil, languageByHand: Bool = false, finished: Date? = nil,
+                tags: [String] = [], about: String? = nil, aboutChecked: Date? = nil, detailsByHand: Bool = false) {
         self.id = id; self.title = title; self.author = author; self.coverURL = coverURL; self.series = series
         self.seriesNumber = seriesNumber; self.copies = copies; self.status = status
         self.statusByHand = statusByHand; self.wish = wish; self.removed = removed; self.progress = progress
         self.lastOpened = lastOpened; self.added = added; self.changed = changed
         self.rating = rating; self.note = note; self.gaveUp = gaveUp
         self.language = language; self.languageByHand = languageByHand; self.finished = finished
+        self.tags = tags; self.about = about; self.aboutChecked = aboutChecked; self.detailsByHand = detailsByHand
+        self.storeDetails = nil
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, author, coverURL, series, seriesNumber, copies, status, statusByHand, wish, removed
         case progress, lastOpened, added, changed, rating, note, gaveUp, language, languageByHand, finished
+        case tags, about, aboutChecked, detailsByHand, storeDetails
     }
 
     public init(from decoder: Decoder) throws {
@@ -114,6 +129,11 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
         language = try? c.decodeIfPresent(String.self, forKey: .language)
         languageByHand = (try? c.decode(Bool.self, forKey: .languageByHand)) ?? false
         finished = try? c.decodeIfPresent(Date.self, forKey: .finished)
+        tags = (try? c.decode([String].self, forKey: .tags)) ?? []
+        about = try? c.decodeIfPresent(String.self, forKey: .about)
+        aboutChecked = try? c.decodeIfPresent(Date.self, forKey: .aboutChecked)
+        detailsByHand = (try? c.decode(Bool.self, forKey: .detailsByHand)) ?? false
+        storeDetails = try? c.decodeIfPresent(BookDetails.self, forKey: .storeDetails)
     }
 
     /// The day this book counts as finished: the day noted, else (a book finished before the day was kept)
@@ -140,6 +160,17 @@ public struct Book: Codable, Equatable, Sendable, Identifiable {
             if stores.count > 1 { return true }
         }
         return false
+    }
+}
+
+/// A book's title, author and place in a series.
+public struct BookDetails: Codable, Equatable, Sendable {
+    public var title: String
+    public var author: String
+    public var series: String?
+    public var seriesNumber: Double?
+    public init(title: String, author: String, series: String? = nil, seriesNumber: Double? = nil) {
+        self.title = title; self.author = author; self.series = series; self.seriesNumber = seriesNumber
     }
 }
 
@@ -184,7 +215,9 @@ public struct LibraryData: Codable, Equatable, Sendable {
     /// Raised when a new version adds something an older version would lose by saving.
     /// 2 (version 0.3): stars, note and "gave up" on a book, and what is known about each series.
     /// 3 (version 0.5): the Up next list, the yearly goal, a book's language and finishing day, a series total typed by hand.
-    public static let currentFormat = 3
+    /// 4 (version 0.6): tags, reading notes and their kinds, kept filters, the choice and order of shelves,
+    /// corrected details, what a book is about, and what changed with each store's list.
+    public static let currentFormat = 4
 
     public var format: Int
     public var books: [Book]
@@ -198,15 +231,38 @@ public struct LibraryData: Codable, Equatable, Sendable {
     /// Books to finish in a year, by year ("2026": 24).
     public var goals: [String: Int]
     public var goalsChanged: Date
+    /// The owner's reading notes, of every book. Between two devices the newer change of a note wins.
+    public var notes: [ReadingNote]
+    /// The kinds a note can have. Between two devices the newer list wins whole.
+    public var noteKinds: [NoteKind]
+    public var noteKindsChanged: Date
+    /// Filters the owner kept as shelves of his own.
+    public var savedFilters: [SavedFilter]
+    /// The owner's order of the shelves on the main screen, and the ones he hid (see `LibraryData.orderKey`).
+    public var shelfOrder: [String]
+    public var hiddenShelves: [String]
+    public var shelvesChanged: Date
+    /// What came and left with the latest reads of the stores' lists, the newest first.
+    public var changes: [ChangeEntry]
 
     public init(format: Int = LibraryData.currentFormat, books: [Book] = [], imports: [String: ImportNote] = [:],
                 series: [String: SeriesInfo] = [:], upNext: [String] = [], upNextChanged: Date = Date(timeIntervalSince1970: 0),
-                goals: [String: Int] = [:], goalsChanged: Date = Date(timeIntervalSince1970: 0)) {
+                goals: [String: Int] = [:], goalsChanged: Date = Date(timeIntervalSince1970: 0),
+                notes: [ReadingNote] = [], noteKinds: [NoteKind] = NoteKind.start,
+                noteKindsChanged: Date = Date(timeIntervalSince1970: 0), savedFilters: [SavedFilter] = [],
+                shelfOrder: [String] = [], hiddenShelves: [String] = [],
+                shelvesChanged: Date = Date(timeIntervalSince1970: 0), changes: [ChangeEntry] = []) {
         self.format = format; self.books = books; self.imports = imports; self.series = series
         self.upNext = upNext; self.upNextChanged = upNextChanged; self.goals = goals; self.goalsChanged = goalsChanged
+        self.notes = notes; self.noteKinds = noteKinds; self.noteKindsChanged = noteKindsChanged
+        self.savedFilters = savedFilters; self.shelfOrder = shelfOrder; self.hiddenShelves = hiddenShelves
+        self.shelvesChanged = shelvesChanged; self.changes = changes
     }
 
-    enum CodingKeys: String, CodingKey { case format, books, imports, series, upNext, upNextChanged, goals, goalsChanged }
+    enum CodingKeys: String, CodingKey {
+        case format, books, imports, series, upNext, upNextChanged, goals, goalsChanged
+        case notes, noteKinds, noteKindsChanged, savedFilters, shelfOrder, hiddenShelves, shelvesChanged, changes
+    }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -218,6 +274,14 @@ public struct LibraryData: Codable, Equatable, Sendable {
         upNextChanged = (try? c.decode(Date.self, forKey: .upNextChanged)) ?? Date(timeIntervalSince1970: 0)
         goals = (try? c.decode([String: Int].self, forKey: .goals)) ?? [:]
         goalsChanged = (try? c.decode(Date.self, forKey: .goalsChanged)) ?? Date(timeIntervalSince1970: 0)
+        notes = ((try? c.decode([Lossy<ReadingNote>].self, forKey: .notes)) ?? []).compactMap(\.value)
+        noteKinds = (try? c.decode([Lossy<NoteKind>].self, forKey: .noteKinds))?.compactMap(\.value) ?? NoteKind.start
+        noteKindsChanged = (try? c.decode(Date.self, forKey: .noteKindsChanged)) ?? Date(timeIntervalSince1970: 0)
+        savedFilters = ((try? c.decode([Lossy<SavedFilter>].self, forKey: .savedFilters)) ?? []).compactMap(\.value)
+        shelfOrder = (try? c.decode([String].self, forKey: .shelfOrder)) ?? []
+        hiddenShelves = (try? c.decode([String].self, forKey: .hiddenShelves)) ?? []
+        shelvesChanged = (try? c.decode(Date.self, forKey: .shelvesChanged)) ?? Date(timeIntervalSince1970: 0)
+        changes = ((try? c.decode([Lossy<ChangeEntry>].self, forKey: .changes)) ?? []).compactMap(\.value)
     }
 
     /// A file written by a newer version of the app: show it, change nothing.
@@ -251,6 +315,9 @@ public struct LibraryData: Codable, Equatable, Sendable {
                 if winner.language == nil, !winner.languageByHand, let language = other.language { winner.language = language }
                 // And for the finishing day of a book finished before the day was kept (see `tidy`).
                 if winner.finished == nil, winner.status == .finished, let day = other.finished { winner.finished = day }
+                // What a catalogue said the book is about is nobody's change either.
+                if winner.about == nil, let about = other.about { winner.about = about }
+                if let asked = other.aboutChecked, asked > (winner.aboutChecked ?? .distantPast) { winner.aboutChecked = asked }
                 byID[book.id] = winner
             } else {
                 byID[book.id] = book
@@ -272,9 +339,34 @@ public struct LibraryData: Codable, Equatable, Sendable {
         }
         let nextSide = b.upNextChanged > a.upNextChanged ? b : a
         let goalSide = b.goalsChanged > a.goalsChanged ? b : a
+        let kindSide = b.noteKindsChanged > a.noteKindsChanged ? b : a
+        let shelfSide = b.shelvesChanged > a.shelvesChanged ? b : a
+        // Notes and kept filters: one by one, the newer change wins (a removed one stays as a marker).
+        func newest<T: Identifiable>(_ items: [T], changed: (T) -> Date) -> [T] where T.ID == String {
+            var byID: [String: T] = [:]
+            var order: [String] = []
+            for item in items {
+                if let have = byID[item.id] {
+                    if changed(item) > changed(have) { byID[item.id] = item }
+                } else {
+                    byID[item.id] = item
+                    order.append(item.id)
+                }
+            }
+            return order.compactMap { byID[$0] }
+        }
+        var seen = Set<String>()
+        let changes = (a.changes + b.changes).filter { seen.insert($0.id).inserted }
+            .sorted { ($0.date, $0.id) > ($1.date, $1.id) }
         return LibraryData(format: max(a.format, b.format), books: order.compactMap { byID[$0] }, imports: imports, series: series,
                            upNext: nextSide.upNext, upNextChanged: nextSide.upNextChanged,
-                           goals: goalSide.goals, goalsChanged: goalSide.goalsChanged)
+                           goals: goalSide.goals, goalsChanged: goalSide.goalsChanged,
+                           notes: newest(a.notes + b.notes) { $0.changed },
+                           noteKinds: kindSide.noteKinds, noteKindsChanged: kindSide.noteKindsChanged,
+                           savedFilters: newest(a.savedFilters + b.savedFilters) { $0.changed },
+                           shelfOrder: shelfSide.shelfOrder, hiddenShelves: shelfSide.hiddenShelves,
+                           shelvesChanged: shelfSide.shelvesChanged,
+                           changes: Array(changes.prefix(ChangeEntry.kept)))
     }
 }
 

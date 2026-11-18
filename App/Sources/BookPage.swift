@@ -13,6 +13,12 @@ struct BookPage: View {
     @State private var priceAsked = false
     @State private var wishedNext = false
     @State private var editingDay = false
+    // For pictures: `-correct` and `-tags` start with that page open (with `-show <title word>`).
+    @State private var correcting = ProcessInfo.processInfo.arguments.contains("-correct")
+    @State private var tagging = ProcessInfo.processInfo.arguments.contains("-tags")
+    @State private var noteDraft: NoteDraft?
+    @State private var aboutOpen = false
+    @Environment(\.openRoute) private var openRoute
 
     private let colour = "purple"
 
@@ -44,6 +50,9 @@ struct BookPage: View {
                 if book.status == .finished { finishedRow(book) }
                 if !book.wish { languageRow(book) }
                 starsAndNote(book)
+                tagsRow(book)
+                readingNotes(book)
+                if let about = book.about { aboutPart(about) }
                 if let next = model.data.nextInSeries(after: book) { nextRow(next, after: book) }
                 if book.wish { buying(book) }
                 if !book.copies.isEmpty { copies(book) }
@@ -59,6 +68,15 @@ struct BookPage: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("book-notice")
+                }
+                if !model.readOnly {
+                    Button { correcting = true } label: {
+                        Text(book.detailsByHand ? "Correct title, author or series (corrected by you)" : "Correct title, author or series")
+                            .foregroundStyle(Theme.text(colour))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
+                    .accessibilityIdentifier("book-correct")
                 }
                 if model.data.canRemove(book) && !model.readOnly {
                     Button { askRemove = true } label: {
@@ -82,6 +100,10 @@ struct BookPage: View {
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .sheet(isPresented: $correcting) { CorrectBookPage(bookID: book.id) }
+        .sheet(isPresented: $tagging) { TagsPage(bookID: book.id) }
+        .sheet(item: $noteDraft) { NoteEditPage(draft: $0) }
+        .task(id: book.id) { model.lookUpAbout(book) }
     }
 
     private func header(_ book: Book) -> some View {
@@ -93,12 +115,41 @@ struct BookPage: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("book-title")
                 if !book.author.isEmpty {
-                    Text(book.author).foregroundStyle(.secondary)
+                    // The author's name leads to every book of theirs, owned and wished.
+                    if let openRoute {
+                        Button { openRoute(.author(book.author)) } label: {
+                            Text(book.author)
+                                .foregroundStyle(Theme.text("indigo"))
+                                .multilineTextAlignment(.leading)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("book-author")
+                    } else {
+                        Text(book.author).foregroundStyle(.secondary)
+                    }
                 }
                 if let line = seriesLine(book) {
-                    Text(line).font(.footnote).foregroundStyle(.secondary)
+                    // The series' name leads to every part of it: owned, read, missing.
+                    if let openRoute, let series = book.series {
+                        Button { openRoute(.series(series)) } label: {
+                            Text(line)
+                                .font(.footnote)
+                                .foregroundStyle(Theme.text("green"))
+                                .multilineTextAlignment(.leading)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("book-series")
+                    } else {
+                        Text(line).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 StoreMarks(book: book)
+                if let done = LibraryData.coverProgress(book) {
+                    Text("\(Int((done * 100).rounded())) % read")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("book-progress")
+                }
                 if book.ownedTwice {
                     Text("Owned twice")
                         .font(.footnote.weight(.semibold))
@@ -268,6 +319,108 @@ struct BookPage: View {
         }
         .sheet(isPresented: $editingNote) {
             NotePage(bookID: book.id, stars: book.rating ?? 0, text: book.note ?? "")
+        }
+    }
+
+    // MARK: Tags, reading notes, what it is about (0.6)
+
+    private func tagsRow(_ book: Book) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Tags")
+                    .font(.headline)
+                    .foregroundStyle(Theme.text("teal"))
+                Spacer(minLength: 8)
+                if !model.readOnly {
+                    Button(book.tags.isEmpty ? "Add" : "Edit") { tagging = true }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.text("teal"))
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("book-tags-edit")
+                }
+            }
+            if book.tags.isEmpty {
+                Text("No tags yet.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                // A tap on a tag shows every book that carries it.
+                ChipFlow {
+                    ForEach(book.tags, id: \.self) { tag in
+                        Chip(title: tag, colour: "teal", on: false) {
+                            var filter = BookFilter()
+                            filter.tags = [LibraryData.tagKey(tag)]
+                            openRoute?(.results(filter))
+                        }
+                        .accessibilityIdentifier("book-tag-\(LibraryData.tagKey(tag))")
+                    }
+                }
+            }
+        }
+    }
+
+    private func readingNotes(_ book: Book) -> some View {
+        let notes = model.data.notes(of: book.id)
+        return VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(notes.isEmpty ? "Reading notes" : "Reading notes · \(notes.count)")
+                    .font(.headline)
+                    .foregroundStyle(Theme.text("orange"))
+                Spacer(minLength: 8)
+                if !model.readOnly {
+                    Button("New note") { noteDraft = NoteDraft(bookID: book.id) }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.text("orange"))
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("book-new-note")
+                }
+            }
+            if notes.isEmpty {
+                Text("Nothing noted yet. Type, speak, or take a photo of the page.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(notes) { note in
+                    Button { noteDraft = NoteDraft(bookID: book.id, noteID: note.id) } label: {
+                        NoteRow(note: note)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(model.readOnly)
+                    .accessibilityIdentifier("book-note-\(note.id)")
+                }
+                // All notes of this book as one tidy page, to any app that takes words.
+                ShareLink(item: model.data.notesPage(of: book.id),
+                          subject: Text("Notes on “\(book.title)”")) {
+                    Text(notes.count == 1 ? "Send this note as a page" : "Send all \(notes.count) notes as one page")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.text("orange"))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+                .accessibilityIdentifier("book-notes-send")
+            }
+        }
+    }
+
+    private func aboutPart(_ about: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("What it is about")
+                .font(.headline)
+                .foregroundStyle(Theme.text("brown"))
+            Text(about)
+                .lineLimit(aboutOpen ? nil : 5)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("book-about")
+            if about.count > 260 {
+                Button(aboutOpen ? "Less" : "More") { aboutOpen.toggle() }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.text("brown"))
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("book-about-more")
+            }
+            Text("From the publisher, as a catalogue lists it.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -473,7 +626,7 @@ struct NotePage: View {
                 Section("Your note") {
                     TextField("One line about this book", text: $text, axis: .vertical)
                         .lineLimit(2...6)
-                        .accessibilityIdentifier("note-text")
+                        .accessibilityIdentifier("stars-note-text")
                 }
             }
             .navigationTitle("Stars and note")
@@ -484,7 +637,7 @@ struct NotePage: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .keyboardShortcut(.cancelAction)
-                        .accessibilityIdentifier("note-cancel")
+                        .accessibilityIdentifier("stars-note-cancel")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
@@ -494,7 +647,7 @@ struct NotePage: View {
                     }
                     .buttonStyle(FilledButton(colour: colour))
                     .keyboardShortcut(.defaultAction)
-                    .accessibilityIdentifier("note-save")
+                    .accessibilityIdentifier("stars-note-save")
                 }
             }
         }

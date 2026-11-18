@@ -194,7 +194,7 @@ final class LibraryTests: XCTestCase {
     func testSampleShowsEveryKindOfShelf() {
         let shelves = LibraryData.sample.shelves()
         XCTAssertEqual(shelves.map(\.id).filter { !$0.hasPrefix("series-") },
-                       ["reading", "upnext", "unread", "aside", "lockfree", "audio", "twice", "finished", "gaveup", "wish"])
+                       ["reading", "upnext", "saved-sample-kobo", "unread", "aside", "lockfree", "audio", "twice", "finished", "gaveup", "wish"])
         XCTAssertEqual(shelves.filter { $0.id.hasPrefix("series-") }.count, 2)
         XCTAssertTrue(shelves.allSatisfy { !$0.books.isEmpty })
         XCTAssertEqual(shelves.first { $0.id == "series-the lantern cycle" }?.note, "3 of 5 · missing 3 and 5")
@@ -373,7 +373,7 @@ final class LibraryTests: XCTestCase {
         b.setSeries(SeriesInfo(total: 5, checked: day(2)), for: "Lamp Cycle")
         XCTAssertEqual(LibraryData.merged(a, b).seriesInfo(for: "Lamp Cycle")?.total, 5)
         XCTAssertEqual(LibraryData.merged(b, a).seriesInfo(for: "Lamp Cycle")?.total, 5)
-        XCTAssertEqual(LibraryData.currentFormat, 3)
+        XCTAssertEqual(LibraryData.currentFormat, 4)
         let old = #"{"format":1,"books":[{"id":"b1","title":"Tidal Maps","added":"2026-01-01T00:00:00Z","changed":"2026-01-01T00:00:00Z"}]}"#
         let lib = try LibraryData.decode(Data(old.utf8))
         XCTAssertEqual(lib.format, 1)

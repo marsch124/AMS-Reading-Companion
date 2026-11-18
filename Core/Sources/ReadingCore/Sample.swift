@@ -5,22 +5,22 @@ extension LibraryData {
     /// no cover pictures (the app draws a title tile). Every kind of shelf has something on it.
     public static var sample: LibraryData {
         // Fixed day numbers counted from 1 Jan 2026, so a picture is the same every time.
-        func day(_ n: Int) -> Date { Date(timeIntervalSince1970: 1_767_225_600 + Double(n) * 86_400) }
+        func day(_ n: Double) -> Date { Date(timeIntervalSince1970: 1_767_225_600 + n * 86_400) }
         func copy(_ store: BookStore, _ id: String, kind: BookKind = .ebook, lockFree: Bool = false,
                   file: String? = nil, bought: Int, source: CopySource) -> BookCopy {
             BookCopy(store: store, storeID: id, kind: kind, lockFree: lockFree, filePath: file,
-                     purchased: day(bought), source: source)
+                     purchased: day(Double(bought)), source: source)
         }
         func book(_ title: String, _ author: String, _ copies: [BookCopy], status: ReadStatus = .unread,
                   series: String? = nil, number: Double? = nil, progress: Double? = nil, opened: Int? = nil,
                   rating: Int? = nil, note: String? = nil, gaveUp: Bool = false) -> Book {
             let added = copies.compactMap(\.purchased).min() ?? day(0)
             return Book(id: copies[0].id, title: title, author: author, series: series, seriesNumber: number,
-                        copies: copies, status: status, progress: progress, lastOpened: opened.map(day),
+                        copies: copies, status: status, progress: progress, lastOpened: opened.map { day(Double($0)) },
                         added: added, changed: added, rating: rating, note: note, gaveUp: gaveUp)
         }
         func wish(_ title: String, _ author: String, _ n: Int) -> Book {
-            Book(id: "wish:sample-\(n)", title: title, author: author, wish: true, added: day(300 + n), changed: day(300 + n))
+            Book(id: "wish:sample-\(n)", title: title, author: author, wish: true, added: day(Double(300 + n)), changed: day(Double(300 + n)))
         }
 
         let lantern = "The Lantern Cycle"
@@ -97,6 +97,32 @@ extension LibraryData {
         data.goals = ["2026": 12]
         data.goalsChanged = day(1)
         data.guessLanguages()
+
+        // Version 0.6: tags, reading notes, a kept filter, what a book is about, and what the stores' lists changed.
+        data.setTags(["sea", "slow read"], of: "kobo:k-salt", now: day(300))
+        data.setTags(["sea"], of: "kobo:k-winter", now: day(300))
+        data.setTags(["series", "slow read"], of: "kobo:k-ember", now: day(300))
+        data.setTags(["cooking"], of: "own:file-recipes", now: day(300))
+        data.setAbout("A lighthouse keeper's daughter finds an old signal book in the salt store and starts to answer "
+                      + "messages nobody has sent for forty years. A quiet novel about the sea, patience and the "
+                      + "people who wait on shore.", of: "kobo:k-salt")
+        data.addNote(bookID: "kobo:k-salt", text: "The sea keeps what it is given, and gives back only stories.",
+                     kind: "quote", page: "41", now: day(308), newID: "n1")
+        data.addNote(bookID: "kobo:k-salt", text: "The harbour master knows more than he says.", kind: "thought", now: day(309), newID: "n2")
+        data.addNote(bookID: "kobo:k-salt", text: "fathom", kind: "word", page: "57", now: day(309.5), newID: "n3")
+        data.addNote(bookID: "kobo:k-salt", text: "Look up the old map of the bay.", kind: "todo", now: day(310), newID: "n4")
+        data.addNote(bookID: "kindle:B0SAMPLE01", text: "Nobody is lost who still counts the hours.", kind: "quote",
+                     page: "12", now: day(304), newID: "n5")
+        data.addNote(bookID: "kindle:B0SAMPLE01", text: "Reminds me of the night trains to the north.", kind: "thought", now: day(305), newID: "n6")
+        data.addNote(bookID: "apple:a-harrow1", text: "Read part two before spring.", kind: "todo", now: day(251), newID: "n7")
+        var kobo = BookFilter()
+        kobo.stores = [.kobo]
+        kobo.states = [.unread]
+        data.keepFilter(kobo, name: "Kobo, not read", now: day(300), newID: "sample-kobo")
+        data.changes = [
+            ChangeEntry(date: day(310), store: "kobo", came: ["Glass Tide"], left: []),
+            ChangeEntry(date: day(296), store: "apple", came: ["Winter Lighthouse"], left: ["A Year of Borrowed Light"]),
+        ]
         return data
     }
 }

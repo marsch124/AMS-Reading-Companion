@@ -177,6 +177,6 @@ final class ExtrasTests: XCTestCase {
         XCTAssertNil(data.books[0].language)
         XCTAssertEqual(data.series["tide"]?.byHand, false)
         XCTAssertFalse(data.isNewer)
-        XCTAssertEqual(LibraryData.currentFormat, 3)
+        XCTAssertEqual(LibraryData.currentFormat, 4)
     }
 }

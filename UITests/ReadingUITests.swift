@@ -40,4 +40,81 @@ final class ReadingUITests: XCTestCase {
         XCTAssertTrue(element(app, "year-page").waitForExistence(timeout: 5))
         XCTAssertTrue(element(app, "year-goal-button").waitForExistence(timeout: 5))
     }
+
+    // MARK: 0.6 screens
+
+    private func launch(_ extra: [String]) -> XCUIApplication {
+        let app = XCUIApplication()
+        var arguments = extra
+        #if os(macOS)
+        arguments += ["-ApplePersistenceIgnoreState", "YES"]
+        #endif
+        arguments.append("-sampleData")
+        app.launchArguments = arguments
+        app.launch()
+        return app
+    }
+
+    private func tap(_ app: XCUIApplication, _ id: String, file: StaticString = #filePath, line: UInt = #line) {
+        let found = element(app, id)
+        XCTAssertTrue(found.waitForExistence(timeout: 15), "missing \(id)", file: file, line: line)
+        found.tap()
+    }
+
+    private func shows(_ app: XCUIApplication, _ id: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(element(app, id).waitForExistence(timeout: 10), "missing \(id)", file: file, line: line)
+    }
+
+    func testFilterCountsAndShows() {
+        let app = launch([])
+        tap(app, "open-filter")
+        shows(app, "filter-page")
+        tap(app, "filter-store-kobo")
+        tap(app, "filter-show")
+        shows(app, "results-page")
+        shows(app, "results-count")
+    }
+
+    func testNewNoteIsSavedAndShowsInTheNotebook() {
+        let app = launch([])
+        tap(app, "new-note")
+        shows(app, "note-page")
+        let text = element(app, "note-text")
+        XCTAssertTrue(text.waitForExistence(timeout: 5))
+        text.tap()
+        text.typeText("A few words")
+        tap(app, "note-save")
+        tap(app, "open-notes")
+        shows(app, "notes-page")
+    }
+
+    func testAuthorAndSeriesPagesOpenFromABook() {
+        let app = launch(["-show", "Ember"])
+        tap(app, "book-author")
+        shows(app, "author-page")
+        app.navigationBars.buttons.firstMatch.tap()
+        tap(app, "book-series")
+        shows(app, "series-page")
+    }
+
+    func testTagsAndCorrectPagesOpen() {
+        let first = launch(["-show", "Salt", "-tags"])
+        shows(first, "tags-page")
+        tap(first, "tags-cancel")
+        first.terminate()
+        let second = launch(["-show", "Salt", "-correct"])
+        shows(second, "correct-page")
+    }
+
+    func testShelvesKindsAndChangesOpenFromSettings() {
+        let app = launch(["-settings"])
+        tap(app, "settings-shelves")
+        shows(app, "shelves-page")
+        tap(app, "shelves-cancel")
+        tap(app, "settings-kinds")
+        shows(app, "kinds-page")
+        tap(app, "kinds-done")
+        tap(app, "settings-changes")
+        shows(app, "changes-page")
+    }
 }
